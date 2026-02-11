@@ -1,0 +1,124 @@
+/* Base layout and safe area */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  min-height: 100dvh;
+}
+
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  font-size: clamp(14px, 3.6vw, 16px);
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Horizontal product scrollers (Jumia-like) */
+.horizontal-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 8px;
+}
+.horizontal-scroll::-webkit-scrollbar {
+  display: none;
+}
+.scroll-card {
+  min-width: 210px;
+  max-width: 240px;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+}
+
+.splash-progress {
+  height: 100%;
+  width: 35%;
+  background: #064e3b;
+  border-radius: 9999px;
+  animation: splashProgress 1.4s ease-in-out infinite;
+}
+
+@keyframes splashProgress {
+  0% { transform: translateX(-30%); width: 30%; opacity: 0.6; }
+  50% { transform: translateX(60%); width: 60%; opacity: 1; }
+  100% { transform: translateX(130%); width: 30%; opacity: 0.6; }
+}
+
+/* Base mobile touch targets */
+@media (max-width: 640px) {
+  body {
+    font-size: clamp(14px, 4vw, 16px);
+    line-height: 1.5;
+  }
+
+  button,
+  [role="button"],
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+    font-size: 0.9rem !important;
+    padding-top: 0.65rem !important;
+    padding-bottom: 0.65rem !important;
+  }
+
+  .text-3xl { font-size: 1.6rem !important; }
+  .text-2xl { font-size: 1.4rem !important; }
+  .text-xl { font-size: 1.2rem !important; }
+  .text-lg { font-size: 1.1rem !important; }
+  .text-sm { font-size: 1rem !important; }
+  .text-xs { font-size: 0.9rem !important; }
+
+  .mobile-bottom-nav {
+    font-size: 11px;
+  }
+  .mobile-bottom-nav button {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    gap: 4px;
+  }
+  .mobile-bottom-nav span {
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+
+  /* Harmonise les tailles custom très petites */
+  .text-\[8px\],
+  .text-\[9px\] {
+    font-size: 11px !important;
+  }
+  .text-\[10px\] {
+    font-size: 12px !important;
+  }
+  .text-\[11px\] {
+    font-size: 13px !important;
+  }
+
+  .cookie-accept-btn {
+    display: none !important;
+  }
+
+  .p-6 {
+    padding: 0.75rem !important;
+  }
+}
+
+/* Très petits écrans */
+@media (max-width: 380px) {
+  .mobile-bottom-nav {
+    font-size: 10px;
+  }
+  .mobile-bottom-nav button {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+}

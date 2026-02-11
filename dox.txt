@@ -1,0 +1,31 @@
+CREATION ADMIN - INFOS + REQUETE SQL
+
+1) Infos a remplir
+Email admin: __________________________
+Mot de passe: _________________________
+Role (STORE_ADMIN / PARTNER_ADMIN / SUPER_ADMIN): __________________
+Nom complet: __________________________
+Telephone (optionnel): ________________
+Business name (optionnel): ____________
+Localisation (optionnel): _____________
+
+2) Requete SQL (a executer dans Supabase SQL Editor)
+-- Remplace les valeurs entre guillemets
+select auth.create_user(
+  email := 'admin@ivoiredestock.com',
+  password := 'Admin@1234',
+  email_confirm := true,
+  user_metadata := jsonb_build_object(
+    'full_name','Admin Test',
+    'role','STORE_ADMIN',
+    'phone','0700000000',
+    'business_name','Business Test',
+    'location','Abidjan'
+  )
+);
+
+insert into public.profiles (id, full_name, role, email, phone, business_name, location, status)
+select id, 'Admin Test', 'STORE_ADMIN', 'admin@ivoiredestock.com', '0700000000', 'Business Test', 'Abidjan', 'ACTIVE'
+from auth.users
+where email='admin@ivoiredestock.com'
+on conflict (id) do nothing;
