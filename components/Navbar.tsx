@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ShoppingCart, Menu, X, User, Search, ChevronDown, LogOut, ShieldCheck, Store, Users, Home, LayoutGrid, Apple, Beer, Coffee, Beef, Briefcase, UserCircle } from 'lucide-react';
+import { ShoppingCart, Menu, X, User, Search, ChevronDown, LogOut, ShieldCheck, Store, Users, Home, LayoutGrid, Apple, Beer, Coffee, Beef, Briefcase, UserCircle, Power, Heart } from 'lucide-react';
 import { UserRole } from '../types';
 
 interface NavbarProps {
@@ -19,6 +19,7 @@ interface NavbarProps {
   onAccount: () => void;
   isCartOpen: boolean;
   onHome: () => void;
+  onQuit?: () => void;
 }
 
 const Navbar: React.FC<NavbarProps> = (props) => {
@@ -60,8 +61,11 @@ const Navbar: React.FC<NavbarProps> = (props) => {
   return (
     <nav className="w-full sticky top-0 z-[100] font-sans flex flex-col">
       
-      {/* --- 1. HEADER PRINCIPAL --- */}
-      <div className="bg-[#064e3b] text-white px-3 py-2 shadow-md">
+      {/* --- 1. HEADER PRINCIPAL (safe-area pour ne pas passer sous la barre de statut) --- */}
+      <div
+        className="bg-[#064e3b] text-white px-3 py-2 shadow-md"
+        style={{ paddingTop: 'max(env(safe-area-inset-top), 24px)' }}
+      >
         <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4">
           
           {/* LOGO */}
@@ -238,6 +242,18 @@ const Navbar: React.FC<NavbarProps> = (props) => {
               </button>
             </div>
 
+            {/* QUITTER (Mobile Burger) */}
+            {props.onQuit && (
+              <div className="pt-2 border-t border-gray-100">
+                <button
+                  onClick={() => { props.onQuit?.(); setIsMenuOpen(false); }}
+                  className="w-full flex items-center justify-center gap-2 text-gray-500 font-bold uppercase text-[9px] p-2 bg-gray-100 rounded-lg border border-gray-200 hover:bg-gray-200 active:bg-gray-300"
+                >
+                  <Power size={14} /> Quitter l'app
+                </button>
+              </div>
+            )}
+
             {/* AUTH & LOGOUT (Mobile Burger) */}
             <div className="mt-auto pt-3 border-t border-gray-100">
               {props.isAuthenticated ? (
@@ -272,44 +288,51 @@ const Navbar: React.FC<NavbarProps> = (props) => {
         </div>
       )}
 
-      {/* --- 4. NAVBAR INFÉRIEURE (Mobile) --- */}
+      {/* --- 4. NAVBAR INFÉRIEURE (Mobile) - 5 onglets comme capture 3 --- */}
       <div
         className="md:hidden fixed bottom-0 left-0 right-0 z-[1200] border-t border-gray-200 bg-white/90 backdrop-blur-md"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        <div className="grid grid-cols-4 font-black uppercase tracking-wide mobile-bottom-nav">
+        <div className="grid grid-cols-5 font-black uppercase tracking-wide mobile-bottom-nav text-[10px]">
           <button
             onClick={() => { props.onHome(); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }}
-            className={`py-3 flex flex-col items-center gap-1 hover:text-[#064e3b] active:scale-95 transition-transform ${props.currentPage === 'home' ? 'text-[#064e3b]' : 'text-gray-600'}`}
+            className={`py-2.5 flex flex-col items-center gap-0.5 hover:text-[#064e3b] active:scale-95 transition-transform ${props.currentPage === 'home' ? 'text-[#064e3b]' : 'text-gray-600'}`}
           >
             <Home size={20} />
             <span>Accueil</span>
           </button>
           <button
+            onClick={() => { props.setCurrentPage('marketplace'); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }}
+            className={`py-2.5 flex flex-col items-center gap-0.5 hover:text-[#064e3b] active:scale-95 transition-transform ${props.currentPage === 'marketplace' ? 'text-[#064e3b]' : 'text-gray-600'}`}
+          >
+            <LayoutGrid size={20} />
+            <span>Catégories</span>
+          </button>
+          <button
             onClick={() => { props.toggleCart(); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }}
-            className={`py-3 flex flex-col items-center gap-1 hover:text-[#064e3b] relative active:scale-95 transition-transform ${props.isCartOpen ? 'text-[#064e3b]' : 'text-gray-600'}`}
+            className={`py-2.5 flex flex-col items-center gap-0.5 hover:text-[#064e3b] relative active:scale-95 transition-transform ${props.isCartOpen ? 'text-[#064e3b]' : 'text-gray-600'}`}
           >
             {props.cartCount > 0 && (
-              <span className="absolute -top-1 right-4 bg-red-500 text-white text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full ring-2 ring-white">
+              <span className="absolute -top-0.5 right-3 bg-red-500 text-white text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full ring-2 ring-white">
                 {props.cartCount}
               </span>
             )}
             <ShoppingCart size={20} />
-            <span>Achat</span>
+            <span>Panier</span>
+          </button>
+          <button
+            onClick={() => { props.setCurrentPage('favoris'); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }}
+            className={`py-2.5 flex flex-col items-center gap-0.5 hover:text-[#064e3b] active:scale-95 transition-transform ${props.currentPage === 'favoris' ? 'text-[#064e3b]' : 'text-gray-600'}`}
+          >
+            <Heart size={20} />
+            <span>Favoris</span>
           </button>
           <button
             onClick={() => { props.onAccount(); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }}
-            className={`py-3 flex flex-col items-center gap-1 hover:text-[#064e3b] active:scale-95 transition-transform ${props.currentPage === 'dashboard' ? 'text-[#064e3b]' : 'text-gray-600'}`}
+            className={`py-2.5 flex flex-col items-center gap-0.5 hover:text-[#064e3b] active:scale-95 transition-transform ${props.currentPage === 'dashboard' ? 'text-[#064e3b]' : 'text-gray-600'}`}
           >
             <UserCircle size={20} />
-            <span>Mon compte</span>
-          </button>
-          <button
-            onClick={() => { setIsMobileSpaceOpen(true); setIsMenuOpen(false); }}
-            className={`py-3 flex flex-col items-center gap-1 hover:text-[#064e3b] active:scale-95 transition-transform ${isMobileSpaceOpen ? 'text-[#064e3b]' : 'text-gray-600'}`}
-          >
-            <LayoutGrid size={20} />
-            <span>Espace</span>
+            <span>Compte</span>
           </button>
         </div>
       </div>

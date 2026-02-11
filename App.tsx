@@ -10,11 +10,12 @@ import StaticPage from './pages/StaticPage';
 import SettingsHub from './pages/SettingsHub';
 import Home from './pages/Home';
 import Marketplace from './pages/Marketplace';
+import Favoris from './pages/Favoris';
 import Dashboard from './pages/Dashboard';
 import AIChat from './components/AIChat';
 import AuthScreen from './components/AuthScreen';
 import AdminSidebar from './components/AdminSidebar';
-import { X, Check, Bell, Wallet, AlertCircle, Smartphone, ArrowLeft, ArrowRight, Plus, Minus } from 'lucide-react';
+import { X, Check, Bell, Wallet, AlertCircle, Smartphone, ArrowLeft, ArrowRight, Plus, Minus, Frown, Star } from 'lucide-react';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -46,6 +47,25 @@ const App: React.FC = () => {
     const stored = window.localStorage.getItem('contact_channel');
     return stored === 'messages' ? 'messages' : 'whatsapp';
   });
+  const [favoriteIds, setFavoriteIds] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const s = window.localStorage.getItem('ivoiredestock_favoris');
+      return s ? JSON.parse(s) : [];
+    } catch { return []; }
+  });
+
+  // Quit flow: confirm → optional rate → exit
+  const [quitModalStep, setQuitModalStep] = useState<'confirm' | 'rate' | null>(null);
+  const [quitRating, setQuitRating] = useState(0);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.localStorage.setItem('ivoiredestock_favoris', JSON.stringify(favoriteIds));
+  }, [favoriteIds]);
+
+  const toggleFavorite = (productId: string) => {
+    setFavoriteIds(prev => prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]);
+  };
 
   // 1. Initialize & Auth Listener
   useEffect(() => {
@@ -182,7 +202,39 @@ const App: React.FC = () => {
     setRole('BUYER');
     setBuyerSection('dashboard');
     setAdminSection('dashboard');
+    setIsCartOpen(false);
     setCurrentPage('home');
+    if (typeof window !== 'undefined') window.scrollTo(0, 0);
+  };
+
+  const handleQuit = () => {
+    try {
+      const cap = (window as any).Capacitor;
+      if (cap?.Plugins?.App?.exitApp) cap.Plugins.App.exitApp();
+    } catch (_) {}
+  };
+
+  const openQuitModal = () => setQuitModalStep('confirm');
+  const closeQuitModal = () => {
+    setQuitModalStep(null);
+    setQuitRating(0);
+  };
+
+  const handleQuitConfirmNo = () => closeQuitModal();
+  const handleQuitConfirmYes = () => setQuitModalStep('rate');
+
+  const PLAY_STORE_ID = 'com.cervo.app';
+  const handleQuitIgnore = () => {
+    closeQuitModal();
+    handleQuit();
+  };
+  const handleQuitRate = () => {
+    try {
+      const url = `https://play.google.com/store/apps/details?id=${PLAY_STORE_ID}&hl=fr`;
+      if (typeof window !== 'undefined') window.open(url, '_blank');
+    } catch (_) {}
+    closeQuitModal();
+    handleQuit();
   };
 
   const handleAccessChange = (nextRole: UserRole) => {
@@ -576,6 +628,8 @@ const App: React.FC = () => {
           <Home
             products={products}
             onAddToCart={addToCart}
+            favoriteIds={favoriteIds}
+            onToggleFavorite={toggleFavorite}
             onNavigate={setCurrentPage}
             onSellerAccess={goToSellerSpace}
             contactChannel={contactChannel}
@@ -590,7 +644,23 @@ const App: React.FC = () => {
           <Marketplace
             products={products}
             onAddToCart={addToCart}
+            favoriteIds={favoriteIds}
+            onToggleFavorite={toggleFavorite}
             searchQuery={searchQuery}
+            contactChannel={contactChannel}
+            onContactChannelChange={updateContactChannel}
+            isAuthenticated={isAuthenticated}
+            onRequireAuth={requireAuthForMessaging}
+            onStartChat={startBuyerChat}
+          />
+        );
+      case 'favoris':
+        return (
+          <Favoris
+            products={products}
+            favoriteIds={favoriteIds}
+            onToggleFavorite={toggleFavorite}
+            onAddToCart={addToCart}
             contactChannel={contactChannel}
             onContactChannelChange={updateContactChannel}
             isAuthenticated={isAuthenticated}
@@ -615,6 +685,8 @@ const App: React.FC = () => {
           <Home
             products={products}
             onAddToCart={addToCart}
+            favoriteIds={favoriteIds}
+            onToggleFavorite={toggleFavorite}
             onNavigate={setCurrentPage}
             onSellerAccess={goToSellerSpace}
             contactChannel={contactChannel}
@@ -653,6 +725,74 @@ const App: React.FC = () => {
                 className="flex-1 py-3 bg-[#064e3b] text-white font-bold uppercase text-xs rounded-xl hover:opacity-90"
               >
                 Se connecter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale "Voulez-vous vraiment quitter ?" (étape 1) */}
+      {quitModalStep === 'confirm' && (
+        <div className="fixed inset-0 z-[2100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl border border-gray-100 text-center">
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center">
+                <Frown className="w-10 h-10 text-amber-600" strokeWidth={1.5} />
+              </div>
+            </div>
+            <h3 className="text-lg font-black text-[#064e3b] uppercase tracking-tight mb-2">Voulez-vous vraiment quitter ?</h3>
+            <p className="text-sm text-gray-600 mb-6">On serait tristes de vous voir partir…</p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleQuitConfirmNo}
+                className="flex-1 py-3 bg-[#064e3b] text-white font-bold uppercase text-xs rounded-xl hover:opacity-90"
+              >
+                Non, rester
+              </button>
+              <button
+                onClick={handleQuitConfirmYes}
+                className="flex-1 py-3 border border-gray-200 text-gray-600 font-bold uppercase text-xs rounded-xl hover:bg-gray-50"
+              >
+                Oui, quitter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale "Noter l'app" (étape 2) */}
+      {quitModalStep === 'rate' && (
+        <div className="fixed inset-0 z-[2100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl border border-gray-100 text-center">
+            <h3 className="text-lg font-black text-[#064e3b] uppercase tracking-tight mb-2">Donnez une note à l'application</h3>
+            <p className="text-sm text-gray-600 mb-4">Votre avis nous aide à nous améliorer.</p>
+            <div className="flex justify-center gap-1 mb-6">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setQuitRating(n)}
+                  className="p-1 rounded focus:outline-none focus:ring-2 focus:ring-[#064e3b]/30"
+                >
+                  <Star
+                    className={`w-8 h-8 ${quitRating >= n ? 'fill-amber-400 text-amber-500' : 'text-gray-300'}`}
+                    strokeWidth={1.5}
+                  />
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={handleQuitIgnore}
+                className="flex-1 py-3 border border-gray-200 text-gray-600 font-bold uppercase text-xs rounded-xl hover:bg-gray-50"
+              >
+                Ignorer et quitter
+              </button>
+              <button
+                onClick={handleQuitRate}
+                className="flex-1 py-3 bg-[#064e3b] text-white font-bold uppercase text-xs rounded-xl hover:opacity-90"
+              >
+                Noter et quitter
               </button>
             </div>
           </div>
@@ -718,6 +858,7 @@ const App: React.FC = () => {
         userName={userProfile?.name || null}
         onAccount={goToBuyerAccount}
         onHome={goHome}
+        onQuit={openQuitModal}
       />
 
       <main className="flex-1 pb-20 md:pb-0">
@@ -743,18 +884,19 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Cart Overlay */}
+      {/* Cart Overlay (z-index sous la barre du bas pour que Accueil reste cliquable) */}
       {isCartOpen && (
-        <div className="fixed inset-0 z-50 overflow-hidden">
+        <div className="fixed inset-0 z-[40] overflow-hidden">
           <div className="absolute inset-0 bg-black bg-opacity-30 backdrop-blur-sm" onClick={() => setIsCartOpen(false)}></div>
-          <div className="absolute inset-y-0 right-0 max-w-full flex">
-            <div className="w-screen md:max-w-md bg-white shadow-2xl flex flex-col h-[100dvh] md:h-full animate-slide-in-right">
+          <div className="absolute inset-y-0 right-0 max-w-full flex items-end md:items-stretch justify-end">
+            <div className="w-full max-w-md bg-white shadow-2xl flex flex-col h-[85dvh] md:h-full max-h-[85dvh] md:max-h-none animate-slide-in-right rounded-t-2xl md:rounded-none">
               <div
                 className="px-4 md:px-6 py-4 md:py-6 bg-[#064e3b] text-white flex justify-between items-center shadow-md sticky top-0 z-10"
                 style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
               >
-                <button onClick={() => setIsCartOpen(false)} className="hover:opacity-75" aria-label="Retour">
+                <button onClick={goHome} className="flex items-center gap-2 hover:opacity-90" aria-label="Retour à l'accueil">
                   <ArrowLeft size={22} />
+                  <span className="text-sm font-bold uppercase hidden sm:inline">Retour</span>
                 </button>
                 <h2 className="text-lg font-bold tracking-wide uppercase">Votre Panier</h2>
                 <button onClick={() => setIsCartOpen(false)} className="hover:opacity-75" aria-label="Fermer">
@@ -836,10 +978,10 @@ const App: React.FC = () => {
                     Commander
                   </button>
                   <button
-                    onClick={() => setIsCartOpen(false)}
-                    className="w-full md:hidden border border-gray-200 text-gray-600 py-3 font-bold uppercase text-xs hover:bg-gray-100 transition-colors"
+                    onClick={goHome}
+                    className="w-full border border-gray-200 text-gray-600 py-3 font-bold uppercase text-xs hover:bg-gray-100 transition-colors"
                   >
-                    Continuer vos achats
+                    Retour à l'accueil
                   </button>
                 </div>
               </div>

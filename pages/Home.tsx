@@ -6,6 +6,8 @@ import ProductCard from '../components/ProductCard';
 interface HomeProps {
   products: Product[];
   onAddToCart: (p: Product) => void;
+  favoriteIds?: string[];
+  onToggleFavorite?: (productId: string) => void;
   onNavigate: (page: string) => void;
   onSellerAccess: () => void;
   contactChannel: 'whatsapp' | 'messages';
@@ -18,6 +20,8 @@ interface HomeProps {
 const Home: React.FC<HomeProps> = ({
   products,
   onAddToCart,
+  favoriteIds = [],
+  onToggleFavorite,
   onNavigate,
   onSellerAccess,
   contactChannel,
@@ -26,7 +30,15 @@ const Home: React.FC<HomeProps> = ({
   onRequireAuth,
   onStartChat
 }) => {
-  const featuredProducts = products.slice(0, 3);
+  const byCategory = React.useMemo(() => {
+    const map = new Map<string, Product[]>();
+    products.forEach((p) => {
+      const cat = p.category || 'Autres';
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(p);
+    });
+    return Array.from(map.entries());
+  }, [products]);
 
   return (
     <div className="space-y-10 md:space-y-16 pb-20 md:pb-20">
@@ -102,12 +114,12 @@ const Home: React.FC<HomeProps> = ({
         </div>
       </section>
 
-      {/* Featured Products */}
-      <section className="max-w-7xl mx-auto px-4">
-        <div className="flex justify-between items-end mb-6 md:mb-10 pb-4 border-b border-gray-200">
+      {/* Produits par catégorie : 3 visibles par ligne + scroll horizontal */}
+      <section className="max-w-7xl mx-auto px-4 space-y-8">
+        <div className="flex justify-between items-end pb-4 border-b border-gray-200">
           <div>
-            <h2 className="text-3xl font-black text-[#0f172a] tracking-tight uppercase">Arrivages Récents</h2>
-            <p className="text-gray-500 mt-2 text-sm">Dépêchez-vous, les stocks sont limités.</p>
+            <h2 className="text-2xl md:text-3xl font-black text-[#0f172a] tracking-tight uppercase">Catalogue</h2>
+            <p className="text-gray-500 mt-1 text-sm">Par catégorie, 3 cartes visibles puis défilement.</p>
           </div>
           <button 
             onClick={() => onNavigate('marketplace')}
@@ -116,22 +128,33 @@ const Home: React.FC<HomeProps> = ({
             Tout voir <ArrowRight size={16} className="ml-1" />
           </button>
         </div>
-        
-        <div className="horizontal-scroll -mx-4 px-4">
-          {featuredProducts.map((product) => (
-            <div key={product.id} className="scroll-card">
-              <ProductCard
-                product={product}
-                onAddToCart={onAddToCart}
-                contactChannel={contactChannel}
-                onContactChannelChange={onContactChannelChange}
-                isAuthenticated={isAuthenticated}
-                onRequireAuth={onRequireAuth}
-                onStartChat={onStartChat}
-              />
+
+        {byCategory.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">Aucun produit pour le moment.</div>
+        ) : (
+          byCategory.map(([category, list]) => (
+            <div key={category}>
+              <h3 className="text-lg font-black text-[#0f172a] uppercase tracking-wide mb-3">{category}</h3>
+              <div className="horizontal-scroll -mx-4 px-4">
+                {list.map((product) => (
+                  <div key={product.id} className="scroll-card">
+                    <ProductCard
+                      product={product}
+                      onAddToCart={onAddToCart}
+                      isFavorite={favoriteIds.includes(product.id)}
+                      onToggleFavorite={onToggleFavorite}
+                      contactChannel={contactChannel}
+                      onContactChannelChange={onContactChannelChange}
+                      isAuthenticated={isAuthenticated}
+                      onRequireAuth={onRequireAuth}
+                      onStartChat={onStartChat}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
+          ))
+        )}
       </section>
     </div>
   );

@@ -35,11 +35,11 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <button className="bg-[#FDD835] text-emerald-900 font-black px-5 md:px-8 py-3 md:py-4 uppercase text-xs md:text-sm">S'abonner</button>
           </div>
 
-          <div className="lg:w-1/3 flex flex-col items-center lg:items-end">
+          <div className="w-full lg:w-1/3 flex flex-col items-center lg:items-end">
             <p className="text-white text-[10px] font-black mb-4 uppercase tracking-widest">L'App dans votre poche</p>
             <div className="flex items-center gap-4">
-              <a href={PLAY_STORE_LINK} target="_blank" className="bg-white p-1.5 rounded-xl shadow-xl border-2 border-emerald-400">
-                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${PLAY_STORE_LINK}`} alt="QR" className="w-12 h-12 md:w-16 md:h-16" />
+              <a href={PLAY_STORE_LINK} target="_blank" rel="noopener noreferrer" className="bg-white p-2 rounded-xl shadow-xl border-2 border-emerald-400 shrink-0">
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(PLAY_STORE_LINK)}`} alt="QR Code Play Store" className="w-14 h-14 md:w-16 md:h-16 block" />
               </a>
               <div className="flex flex-col gap-2">
                 <a href={APP_STORE_LINK} target="_blank"><img src="/img/app.jpg" alt="App Store" className="h-8 md:h-9" /></a>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingBag, Clock, AlertTriangle, MessageCircle, MapPin, Star, ChevronDown, ChevronUp, Plus } from 'lucide-react';
+import { ShoppingBag, Clock, AlertTriangle, MessageCircle, MapPin, Star, ChevronDown, ChevronUp, Plus, Heart } from 'lucide-react';
 import { Product } from '../types';
 import ReviewModal from './ReviewModal';
 import { createReview } from '../services/backendService';
@@ -8,6 +8,8 @@ import { supabase } from '../services/supabaseClient';
 interface ProductCardProps {
   product: Product;
   onAddToCart: (product: Product) => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: (productId: string) => void;
   contactChannel?: 'whatsapp' | 'messages';
   onContactChannelChange?: (channel: 'whatsapp' | 'messages') => void;
   isAuthenticated?: boolean;
@@ -18,6 +20,8 @@ interface ProductCardProps {
 const ProductCard: React.FC<ProductCardProps> = ({
   product,
   onAddToCart,
+  isFavorite = false,
+  onToggleFavorite,
   contactChannel = 'whatsapp',
   onContactChannelChange,
   isAuthenticated,
@@ -61,6 +65,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
       <div className="relative h-32 md:h-48 bg-gray-50 overflow-hidden">
         <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
         <div className="absolute top-1 left-1 scale-90 origin-top-left">{getStatusBadge(product.status)}</div>
+        {onToggleFavorite && (
+          <button type="button" onClick={(e) => { e.stopPropagation(); onToggleFavorite(product.id); }} className="absolute top-1 right-8 bg-white/90 rounded-full p-1.5 shadow" aria-label="Favori">
+            <Heart size={14} className={isFavorite ? 'text-red-500 fill-red-500' : 'text-gray-400'} />
+          </button>
+        )}
         <div className="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-black px-2 py-1">-{discount}%</div>
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
           <div className="flex items-center text-white text-[10px] font-bold"><MapPin size={10} className="mr-1 text-emerald-400" /> {product.location}</div>
@@ -68,12 +77,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
       </div>
 
       <div className="p-2 md:p-3 flex-1 flex flex-col">
-        <h3 className="text-[#0f172a] font-bold text-xs md:text-sm leading-tight mb-1 line-clamp-2 h-8">{product.name}</h3>
+        <h3 className="product-card-title text-[#0f172a] font-bold text-xs md:text-sm leading-tight mb-1 line-clamp-2 h-8">{product.name}</h3>
         <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wide mb-1">{vendorName}</p>
         <p className="text-[11px] text-gray-500 line-clamp-2 mb-2">{product.description}</p>
         
         <div className="flex items-baseline gap-1.5 mb-2">
-          <span className="text-sm md:text-base font-black text-[#064e3b]">{product.price.toLocaleString('fr-CI')} F</span>
+          <span className="product-card-price text-sm md:text-base font-black text-[#064e3b]">{product.price.toLocaleString('fr-CI')} F</span>
           <span className="text-[11px] text-gray-400 line-through">{product.originalPrice.toLocaleString('fr-CI')} F</span>
         </div>
 

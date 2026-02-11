@@ -33,10 +33,23 @@ body {
   display: none;
 }
 .scroll-card {
-  min-width: 210px;
+  min-width: 200px;
   max-width: 240px;
   flex-shrink: 0;
   scroll-snap-align: start;
+}
+/* Style capture 2 : cartes lisibles, 3 visibles par ligne */
+@media (max-width: 768px) {
+  .scroll-card {
+    min-width: 195px;
+  }
+  .scroll-card .product-card-title {
+    font-size: 13px !important;
+    line-height: 1.25;
+  }
+  .scroll-card .product-card-price {
+    font-size: 14px !important;
+  }
 }
 
 .splash-progress {
@@ -53,8 +66,8 @@ body {
   100% { transform: translateX(130%); width: 30%; opacity: 0.6; }
 }
 
-/* Base mobile touch targets */
-@media (max-width: 640px) {
+/* Mobile / tablet portrait : jusqu'à 768px (inclut 720×1280) */
+@media (max-width: 768px) {
   body {
     font-size: clamp(14px, 4vw, 16px);
     line-height: 1.5;
@@ -110,6 +123,12 @@ body {
   .p-6 {
     padding: 0.75rem !important;
   }
+}
+
+/* Optimisation écran 720×1280 (largeur 720px) */
+@media (min-width: 641px) and (max-width: 720px) {
+  .horizontal-scroll { gap: 14px; }
+  .scroll-card { min-width: 200px; max-width: 220px; }
 }
 
 /* Très petits écrans */

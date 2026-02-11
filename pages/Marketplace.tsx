@@ -6,6 +6,8 @@ import ProductCard from '../components/ProductCard';
 interface MarketplaceProps {
   products: Product[];
   onAddToCart: (p: Product) => void;
+  favoriteIds?: string[];
+  onToggleFavorite?: (productId: string) => void;
   searchQuery?: string;
   contactChannel: 'whatsapp' | 'messages';
   onContactChannelChange: (channel: 'whatsapp' | 'messages') => void;
@@ -17,6 +19,8 @@ interface MarketplaceProps {
 const Marketplace: React.FC<MarketplaceProps> = ({
   products,
   onAddToCart,
+  favoriteIds = [],
+  onToggleFavorite,
   searchQuery = '',
   contactChannel,
   onContactChannelChange,
@@ -66,6 +70,16 @@ const Marketplace: React.FC<MarketplaceProps> = ({
 
     return matchesSearch && matchesCategory && matchesLocation && matchesStatus && matchesPrice;
   });
+
+  const byCategory = React.useMemo(() => {
+    const map = new Map<string, Product[]>();
+    filteredProducts.forEach((p) => {
+      const cat = p.category || 'Autres';
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(p);
+    });
+    return Array.from(map.entries());
+  }, [filteredProducts]);
 
   const FilterSidebar = () => (
     <div className="space-y-8">
@@ -240,18 +254,28 @@ const Marketplace: React.FC<MarketplaceProps> = ({
               <p className="text-gray-500 text-sm max-w-xs mx-auto">Essayez de modifier vos filtres ou votre recherche.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
-              {filteredProducts.map(product => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  onAddToCart={onAddToCart}
-                  contactChannel={contactChannel}
-                  onContactChannelChange={onContactChannelChange}
-                  isAuthenticated={isAuthenticated}
-                  onRequireAuth={onRequireAuth}
-                  onStartChat={onStartChat}
-                />
+            <div className="space-y-8">
+              {byCategory.map(([category, list]) => (
+                <div key={category}>
+                  <h3 className="text-lg font-black text-[#0f172a] uppercase tracking-wide mb-3">{category}</h3>
+                  <div className="horizontal-scroll -mx-4 px-4 md:mx-0 md:px-0">
+                    {list.map((product) => (
+                      <div key={product.id} className="scroll-card">
+                        <ProductCard
+                          product={product}
+                          onAddToCart={onAddToCart}
+                          isFavorite={favoriteIds.includes(product.id)}
+                          onToggleFavorite={onToggleFavorite}
+                          contactChannel={contactChannel}
+                          onContactChannelChange={onContactChannelChange}
+                          isAuthenticated={isAuthenticated}
+                          onRequireAuth={onRequireAuth}
+                          onStartChat={onStartChat}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           )}
