@@ -3,26 +3,55 @@ import { createClient } from "jsr:@supabase/supabase-js@2"
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || '';
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type, Apikey, X-Client-Info',
+  'Access-Control-Max-Age': '86400',
+};
+
+const json = (body: object, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+
 const getRequester = async (req: Request) => {
   const authHeader = req.headers.get('Authorization') || '';
-  if (!authHeader) return null;
-  const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    global: { headers: { Authorization: authHeader } }
-  });
-  const { data } = await supabaseAuth.auth.getUser();
-  return data?.user || null;
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!token) {
+    console.log('admin-users: no token');
+    return null;
+  }
+  if (!SUPABASE_ANON_KEY) {
+    console.log('admin-users: SUPABASE_ANON_KEY missing');
+    return null;
+  }
+  const clientAnon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { data, error } = await clientAnon.auth.getUser(token);
+  if (error) {
+    console.log('admin-users getUser error:', error.message);
+    return null;
+  }
+  if (!data?.user) {
+    console.log('admin-users: no user in response');
+    return null;
+  }
+  return data.user;
 };
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
   try {
-    const { action, userId, email, password, role, full_name, phone, business_name, location } = await req.json();
+    const body = await req.json();
+    const { action, userId, email, password, role, full_name, phone, business_name, location, status } = body;
 
     const requester = await getRequester(req);
     if (!requester) {
-      return new Response(JSON.stringify({ success: false, message: "Non autorisé." }), { status: 401 });
+      return json({ success: false, message: "Non autorisé." }, 401);
     }
 
     const { data: requesterProfile } = await supabaseAdmin
@@ -32,12 +61,12 @@ Deno.serve(async (req) => {
       .single();
 
     if (requesterProfile?.role !== 'SUPER_ADMIN') {
-      return new Response(JSON.stringify({ success: false, message: "Accès refusé." }), { status: 403 });
+      return json({ success: false, message: "Accès refusé." }, 403);
     }
 
     if (action === 'create_admin') {
       if (!email || !password || !role) {
-        return new Response(JSON.stringify({ success: false, message: "email, password ou role manquant." }), { status: 400 });
+        return json({ success: false, message: "email, password ou role manquant." }, 400);
       }
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
         email,
@@ -52,7 +81,7 @@ Deno.serve(async (req) => {
         }
       });
       if (error || !data?.user) {
-        return new Response(JSON.stringify({ success: false, message: error?.message || "Création échouée." }), { status: 400 });
+        return json({ success: false, message: error?.message || "Création échouée." }, 400);
       }
       await supabaseAdmin.from('profiles').upsert({
         id: data.user.id,
@@ -64,44 +93,56 @@ Deno.serve(async (req) => {
         location: location || null,
         status: 'ACTIVE'
       });
-      return new Response(JSON.stringify({ success: true, userId: data.user.id }), { status: 200 });
+      return json({ success: true, userId: data.user.id });
+    }
+
+    if (action === 'update_user') {
+      if (!userId) return json({ success: false, message: "userId manquant." }, 400);
+      const updates: Record<string, unknown> = {};
+      if (role !== undefined) updates.role = role;
+      if (business_name !== undefined) updates.business_name = business_name;
+      if (status !== undefined) updates.status = status;
+      if (full_name !== undefined) updates.full_name = full_name;
+      if (Object.keys(updates).length === 0) return json({ success: false, message: "Aucune modification." }, 400);
+      await supabaseAdmin.from('profiles').update(updates).eq('id', userId);
+      return json({ success: true });
     }
 
     if (!userId) {
-      return new Response(JSON.stringify({ success: false, message: "userId manquant." }), { status: 400 });
+      return json({ success: false, message: "userId manquant." }, 400);
     }
 
     if (action === 'soft_delete') {
       await supabaseAdmin.from('profiles').update({ status: 'DELETED', deleted_at: new Date().toISOString() }).eq('id', userId);
-      return new Response(JSON.stringify({ success: true }), { status: 200 });
+      return json({ success: true });
     }
 
     if (action === 'reactivate') {
       await supabaseAdmin.from('profiles').update({ status: 'ACTIVE', deleted_at: null }).eq('id', userId);
-      return new Response(JSON.stringify({ success: true }), { status: 200 });
+      return json({ success: true });
     }
 
     if (action === 'revoke_access') {
       await supabaseAdmin.from('profiles').update({ status: 'SUSPENDED' }).eq('id', userId);
-      return new Response(JSON.stringify({ success: true }), { status: 200 });
+      return json({ success: true });
     }
 
     if (action === 'reset_password') {
       if (!email) {
-        return new Response(JSON.stringify({ success: false, message: "email manquant." }), { status: 400 });
+        return json({ success: false, message: "email manquant." }, 400);
       }
       const { data, error } = await supabaseAdmin.auth.admin.generateLink({
         type: 'recovery',
         email,
       } as any);
       if (error) {
-        return new Response(JSON.stringify({ success: false, message: error.message }), { status: 400 });
+        return json({ success: false, message: error.message }, 400);
       }
-      return new Response(JSON.stringify({ success: true, action_link: data?.properties?.action_link }), { status: 200 });
+      return json({ success: true, action_link: data?.properties?.action_link });
     }
 
-    return new Response(JSON.stringify({ success: false, message: "Action invalide." }), { status: 400 });
+    return json({ success: false, message: "Action invalide." }, 400);
   } catch (_err) {
-    return new Response(JSON.stringify({ success: false, message: "Erreur serveur." }), { status: 500 });
+    return json({ success: false, message: "Erreur serveur." }, 500);
   }
 });

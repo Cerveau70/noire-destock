@@ -1,5 +1,5 @@
 
-export type UserRole = 'BUYER' | 'STORE_ADMIN' | 'PARTNER_ADMIN' | 'SUPER_ADMIN';
+export type UserRole = 'BUYER' | 'STORE_ADMIN' | 'PARTNER_ADMIN' | 'ADMIN' | 'SUPER_ADMIN';
 
 export type ProductStatus = 'INVENDU' | 'DATE_COURTE' | 'ABIME';
 

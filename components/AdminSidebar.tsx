@@ -18,8 +18,9 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ role, onLogout, activeSecti
   const getRoleLabel = () => {
     switch (role) {
       case 'STORE_ADMIN': return "Vendeur";
-      case 'PARTNER_ADMIN': return "Centrale d'achat";
-      case 'SUPER_ADMIN': return "Admin Global";
+      case 'PARTNER_ADMIN': return "Accès Grossiste";
+      case 'SUPER_ADMIN': return "Super Admin";
+      case 'ADMIN': return "Admin (lecture seule)";
       default: return "";
     }
   };
@@ -29,6 +30,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ role, onLogout, activeSecti
       case 'STORE_ADMIN': return { main: 'IVOIRE', sub: 'VENDEUR' };
       case 'PARTNER_ADMIN': return { main: 'IVOIRE', sub: "CENTRALE" };
       case 'SUPER_ADMIN':
+      case 'ADMIN':
       default: return { main: 'IVOIRE', sub: 'ADMIN' };
     }
   };
@@ -49,13 +51,14 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ role, onLogout, activeSecti
       case 'PARTNER_ADMIN':
         return [
           { icon: LayoutDashboard, label: 'Tableau de Bord', id: 'dashboard' },
-          { icon: PackagePlus, label: "Catalogue Centrale d'achat", id: 'products' },
+          { icon: PackagePlus, label: "Catalogue Accès Grossiste", id: 'products' },
           { icon: Truck, label: 'Livraisons', id: 'logistics' },
           { icon: Ticket, label: 'Support', id: 'tickets' },
           { icon: Settings, label: 'Paramètres', id: 'settings' },
           { icon: LogOut, label: 'Retour accueil', id: 'return-home' },
         ];
       case 'SUPER_ADMIN':
+      case 'ADMIN':
         return [
           { icon: LayoutDashboard, label: 'Vue d\'ensemble', id: 'dashboard' },
           { icon: Users, label: 'Utilisateurs', id: 'users' },
@@ -88,13 +91,15 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ role, onLogout, activeSecti
 
   return (
     <>
-      {/* 1. BOUTON BURGER (Visible uniquement sur mobile) */}
-      <div className="lg:hidden fixed left-4 z-[60]" style={{ top: 'calc(env(safe-area-inset-top) + 0.75rem)' }}>
+      {/* 1. BOUTON BURGER — sous la barre de statut (24–30px min) */}
+      <div className="lg:hidden fixed z-[70] left-3 flex items-center justify-center safe-area-burger">
         <button 
           onClick={() => setIsOpen(!isOpen)}
-          className="p-3 bg-[#0f172a] text-white rounded-xl shadow-2xl border border-gray-700 active:scale-95 transition-all"
+          className="w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center bg-[#0f172a] text-white rounded-md border border-gray-700 active:scale-95 transition-all"
+          style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+          aria-label={isOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
         >
-          {isOpen ? <X size={24} /> : <Menu size={24} />}
+          {isOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
       </div>
 
@@ -114,7 +119,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ role, onLogout, activeSecti
         transition-transform duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}
-        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        style={{ paddingTop: 'max(24px, env(safe-area-inset-top))' }}
       >
         
         {/* Brand */}

@@ -53,13 +53,13 @@ const Favoris: React.FC<FavorisProps> = ({
           <p className="text-gray-500 text-sm max-w-xs mx-auto">Ajoutez des produits en favori depuis le catalogue pour les retrouver ici.</p>
         </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-6 md:space-y-8">
           {byCategory.map(([category, list]) => (
             <div key={category}>
-              <h3 className="text-lg font-black text-[#0f172a] uppercase tracking-wide mb-3">{category}</h3>
-              <div className="horizontal-scroll -mx-4 px-4 md:mx-0 md:px-0">
+              <h3 className="mobile-h2 text-[14px] md:text-lg font-semibold text-[#0f172a] uppercase tracking-wide mb-2">{category}</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
                 {list.map((product) => (
-                  <div key={product.id} className="scroll-card">
+                  <div key={product.id} className="min-w-0">
                     <ProductCard
                       product={product}
                       onAddToCart={onAddToCart}

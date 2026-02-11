@@ -6,9 +6,10 @@ import { ChatMessage, Product } from '../types';
 
 interface AIChatProps {
   productContext?: Product[];
+  hideFAB?: boolean;
 }
 
-const AIChat: React.FC<AIChatProps> = ({ productContext = [] }) => {
+const AIChat: React.FC<AIChatProps> = ({ productContext = [], hideFAB = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -20,7 +21,9 @@ const AIChat: React.FC<AIChatProps> = ({ productContext = [] }) => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [apiUnavailable, setApiUnavailable] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const hasApiKey = Boolean(getGeminiApiKey());
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -61,6 +64,7 @@ const AIChat: React.FC<AIChatProps> = ({ productContext = [] }) => {
       setMessages(prev => [...prev, botMsg]);
     } catch (error) {
       console.error(error);
+      setApiUnavailable(true);
     } finally {
       setIsLoading(false);
     }
@@ -68,18 +72,29 @@ const AIChat: React.FC<AIChatProps> = ({ productContext = [] }) => {
 
   return (
     <>
-      {/* Floating Button */}
-      <button
-        onClick={() => setIsOpen(true)}
-        className={`fixed bottom-24 right-4 md:bottom-6 md:right-6 z-[1300] bg-[#064e3b] text-white p-4 rounded-full shadow-xl hover:bg-[#065f46] transition-all duration-300 transform hover:scale-105 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
-      >
-        <MessageCircle size={26} />
-      </button>
+      {/* Floating Button — masqué quand les filtres sont ouverts */}
+      {!hideFAB && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className={`fixed bottom-20 right-4 md:bottom-6 md:right-6 z-[1300] bg-[#064e3b] text-white p-4 rounded-full shadow-xl hover:bg-[#065f46] transition-all duration-300 transform hover:scale-105 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
+        >
+          <MessageCircle size={26} />
+        </button>
+      )}
 
-      {/* Chat Window */}
-      <div className={`fixed inset-0 md:bottom-6 md:right-6 md:inset-auto z-[1310] w-full md:max-w-sm bg-white md:rounded-t-xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 origin-bottom-right ${isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'}`}>
-        {/* Header */}
-        <div className="bg-[#064e3b] p-4 flex justify-between items-center text-white">
+      {/* Backdrop (mobile) */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-[1305] bg-black/20 backdrop-blur-sm md:bg-transparent md:backdrop-blur-none"
+          onClick={() => setIsOpen(false)}
+          aria-hidden
+        />
+      )}
+
+      {/* Chat Window — Bottom Sheet mobile (85vh), fenêtre desktop */}
+      <div className={`fixed bottom-0 left-0 right-0 md:bottom-6 md:right-6 md:left-auto z-[1310] w-full md:max-w-sm h-[85vh] md:h-[calc(100vh-3rem)] max-h-[85vh] md:max-h-none bg-white rounded-t-2xl md:rounded-t-xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 origin-bottom md:origin-bottom-right flex flex-col ${isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-100 opacity-0 pointer-events-none translate-y-full md:translate-y-0'}`}>
+        {/* Header — Safe Area + coins arrondis */}
+        <div className="bg-[#064e3b] pt-[max(30px,env(safe-area-inset-top))] pb-4 px-4 flex justify-between items-center text-white">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-white/10 rounded-full">
               <Bot size={20} />
@@ -95,7 +110,7 @@ const AIChat: React.FC<AIChatProps> = ({ productContext = [] }) => {
         </div>
 
         {/* Messages Area */}
-        <div className="h-[60vh] md:h-96 overflow-y-auto p-4 space-y-4 bg-gray-50">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 bg-gray-50">
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[85%] p-3 text-sm leading-relaxed ${
@@ -118,8 +133,8 @@ const AIChat: React.FC<AIChatProps> = ({ productContext = [] }) => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Quick Suggestions Chips */}
-        <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 flex gap-2 overflow-x-auto no-scrollbar">
+        {/* Quick Suggestions — une ligne, scroll horizontal */}
+        <div className="chat-suggestions-scroll px-4 py-2 bg-gray-50 border-t border-gray-100 flex gap-2 overflow-x-auto overflow-y-hidden flex-nowrap -webkit-overflow-scrolling-touch pb-1" style={{ scrollbarWidth: 'none' }}>
            <button 
              onClick={() => handleSend("Quels sont les produits disponibles à Yopougon ?")}
              className="flex-shrink-0 flex items-center gap-1 text-xs bg-white border border-gray-200 px-3 py-1.5 rounded-full text-gray-600 hover:border-[#064e3b] hover:text-[#064e3b] transition-colors whitespace-nowrap"
@@ -140,27 +155,27 @@ const AIChat: React.FC<AIChatProps> = ({ productContext = [] }) => {
            </button>
         </div>
 
-        {/* Input Area */}
+        {/* Input Area — style pilule + bouton vert */}
         <div className="p-4 bg-white border-t border-gray-100">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               placeholder="Posez votre question..."
-              className="flex-1 bg-gray-100 border-none rounded-none px-4 py-3 text-sm focus:ring-2 focus:ring-[#064e3b] focus:bg-white transition-colors"
+              className="flex-1 bg-gray-100 border-0 rounded-full px-4 py-3 text-sm focus:ring-2 focus:ring-[#064e3b] focus:bg-white transition-colors outline-none"
             />
             <button 
               onClick={() => handleSend()}
               disabled={isLoading || !input.trim()}
-              className="p-3 bg-[#064e3b] text-white rounded-none hover:bg-[#065f46] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="p-3 bg-[#064e3b] text-white rounded-full hover:bg-[#065f46] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
             >
               <Send size={18} />
             </button>
           </div>
-          {!getGeminiApiKey() && (
-            <p className="text-xs text-red-500 mt-2 text-center">Clé Gemini manquante (VITE_GEMINI_API_KEY).</p>
+          {(!hasApiKey || apiUnavailable) && (
+            <p className="text-xs text-gray-400 mt-2 text-center">L&apos;assistant prépare ses réponses…</p>
           )}
         </div>
       </div>

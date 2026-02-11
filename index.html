@@ -72,14 +72,27 @@
 <div id="root"></div>
 <script type="module" src="/index.tsx"></script>
 
-<!-- PROGRESS LOGIC -->
+<!-- PROGRESS LOGIC : 1,5s + synchro React (finishLoading) + fallback 4s -->
 <script>
-  const duration = 2500;
+  const duration = 1500;
   const start = performance.now();
+  const maxWait = 4000;
 
   const bar = document.getElementById('progress-bar');
   const text = document.getElementById('progress-text');
   const loader = document.getElementById('preloader');
+
+  function hideLoader() {
+    if (!loader) return;
+    loader.classList.add('opacity-0');
+    setTimeout(function() { loader.remove(); }, 500);
+  }
+
+  window.finishLoading = function() {
+    hideLoader();
+  };
+
+  setTimeout(hideLoader, maxWait);
 
   function animate(t) {
     const progress = Math.min(((t - start) / duration) * 100, 100);
@@ -88,11 +101,6 @@
 
     if (progress < 100) {
       requestAnimationFrame(animate);
-    } else {
-      setTimeout(() => {
-        loader.classList.add('opacity-0');
-        setTimeout(() => loader.remove(), 500);
-      }, 200);
     }
   }
 

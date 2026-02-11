@@ -1103,6 +1103,48 @@ export const fetchPlatformStats = async (): Promise<PlatformStats> => {
   return { revenue, totalOrders, activeProducts, totalUsers, totalTickets: ticketsCount || 0, totalDeliveries: deliveriesCount || 0 };
 };
 
+export interface DailySale { date: string; label: string; amount: number; }
+
+function toLocalDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+export const fetchDailySalesForAdmin = async (days = 5): Promise<DailySale[]> => {
+  const from = new Date(Date.now() - days * 86400000);
+  from.setHours(0, 0, 0, 0);
+  const { data, error } = await supabase
+    .from('orders')
+    .select('created_at, total_amount')
+    .gte('created_at', from.toISOString());
+  if (error) {
+    console.error('Error fetching daily sales:', error);
+    return [];
+  }
+  const byDay: Record<string, number> = {};
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000);
+    d.setHours(0, 0, 0, 0);
+    byDay[toLocalDateKey(d)] = 0;
+  }
+  (data || []).forEach((o: { created_at?: string; total_amount?: number }) => {
+    const created = o.created_at ? new Date(o.created_at) : null;
+    if (!created) return;
+    const key = toLocalDateKey(created);
+    if (byDay[key] !== undefined) byDay[key] += Number(o.total_amount || 0);
+  });
+  const sorted = Object.keys(byDay).sort();
+  return sorted.map((date) => {
+    const d = new Date(date + 'T12:00:00');
+    const day = d.getDate();
+    const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+    const label = `${day} ${months[d.getMonth()]}`;
+    return { date, label, amount: byDay[date] };
+  });
+};
+
 export const fetchVendorAggregates = async () => {
   const { data: profiles, error: profilesError } = await supabase
     .from('profiles')
@@ -1248,9 +1290,25 @@ export const updateUserProfile = async (id: string, updates: { role?: UserRole; 
   if (error) throw error;
 };
 
+const getAuthHeaders = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Session expirée. Reconnectez-vous.');
+  return { Authorization: `Bearer ${session.access_token}` };
+};
+
+export const updateUserProfileAdmin = async (userId: string, updates: { role?: UserRole; business_name?: string | null; status?: string; full_name?: string }) => {
+  const { data, error } = await supabase.functions.invoke('admin-users', {
+    body: { action: 'update_user', userId, ...updates },
+    headers: await getAuthHeaders()
+  });
+  if (error) throw error;
+  return data;
+};
+
 export const deleteUserAdmin = async (userId: string) => {
   const { data, error } = await supabase.functions.invoke('admin-users', {
-    body: { action: 'soft_delete', userId }
+    body: { action: 'soft_delete', userId },
+    headers: await getAuthHeaders()
   });
   if (error) throw error;
   return data;
@@ -1258,7 +1316,8 @@ export const deleteUserAdmin = async (userId: string) => {
 
 export const reactivateUserAdmin = async (userId: string) => {
   const { data, error } = await supabase.functions.invoke('admin-users', {
-    body: { action: 'reactivate', userId }
+    body: { action: 'reactivate', userId },
+    headers: await getAuthHeaders()
   });
   if (error) throw error;
   return data;
@@ -1321,7 +1380,8 @@ export const fetchAuditLogs = async (params?: { query?: string; actorRole?: User
 
 export const resetUserPasswordAdmin = async (userId: string, email: string) => {
   const { data, error } = await supabase.functions.invoke('admin-users', {
-    body: { action: 'reset_password', userId, email }
+    body: { action: 'reset_password', userId, email },
+    headers: await getAuthHeaders()
   });
   if (error) throw error;
   return data;
@@ -1329,7 +1389,8 @@ export const resetUserPasswordAdmin = async (userId: string, email: string) => {
 
 export const revokeAccessAdmin = async (userId: string) => {
   const { data, error } = await supabase.functions.invoke('admin-users', {
-    body: { action: 'revoke_access', userId }
+    body: { action: 'revoke_access', userId },
+    headers: await getAuthHeaders()
   });
   if (error) throw error;
   return data;
@@ -1337,7 +1398,8 @@ export const revokeAccessAdmin = async (userId: string) => {
 
 export const createAdminUser = async (payload: { email: string; password: string; role: UserRole; full_name?: string; phone?: string; business_name?: string; location?: string }) => {
   const { data, error } = await supabase.functions.invoke('admin-users', {
-    body: { action: 'create_admin', ...payload }
+    body: { action: 'create_admin', ...payload },
+    headers: await getAuthHeaders()
   });
   if (error) throw error;
   return data;

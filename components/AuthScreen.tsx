@@ -18,7 +18,9 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ role, onLogin, onCancel }) => {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [isAwaitingApproval, setIsAwaitingApproval] = useState(false); // État pour l'écran d'attente
+  const [isAwaitingApproval, setIsAwaitingApproval] = useState(false);
+  const [showResetView, setShowResetView] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
 
   // Form States
   const [email, setEmail] = useState('');
@@ -70,8 +72,15 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ role, onLogin, onCancel }) => {
 
           // --- RÈGLE 1 : VÉRIFICATION DU RÔLE ---
           // On empêche un client de se connecter comme admin/vendeur et vice-versa
-          if (profile.role !== role) {
-            await supabase.auth.signOut(); // On le déconnecte immédiatement
+          const adminRoles = ['SUPER_ADMIN', 'ADMIN'];
+          const canAccessAdminSpace = role === 'SUPER_ADMIN' && profile.role && adminRoles.includes(profile.role);
+          if (role === 'SUPER_ADMIN') {
+            if (!canAccessAdminSpace) {
+              await supabase.auth.signOut();
+              throw new Error(`Ce compte (${profile.role}) ne peut pas accéder à l'espace Administration.`);
+            }
+          } else if (profile.role !== role) {
+            await supabase.auth.signOut();
             throw new Error(`Ce compte est enregistré en tant que ${profile.role}. Vous ne pouvez pas l'utiliser pour accéder à l'espace ${role}.`);
           }
 
@@ -163,24 +172,28 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ role, onLogin, onCancel }) => {
     }
   };
 
-  const handleResetPassword = async () => {
-    if (!email) {
-      setErrorMsg("Veuillez saisir votre email.");
+  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setErrorMsg("Veuillez saisir votre adresse email.");
       return;
     }
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setErrorMsg("Adresse email invalide.");
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail);
+    setLoading(false);
     if (error) {
-      setErrorMsg("Erreur lors de la réinitialisation.");
+      setErrorMsg("Erreur lors de l'envoi. Vérifiez votre email ou réessayez.");
       return;
     }
-    setSuccessMsg("Email de réinitialisation envoyé.");
-  };
-
-  const handleGoogleAuth = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin }
-    });
+    setResetEmailSent(true);
+    setErrorMsg(null);
   };
 
   // --- ÉCRAN D'ATTENTE DE VALIDATION ---
@@ -193,7 +206,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ role, onLogin, onCancel }) => {
           </div>
           <h2 className="text-2xl font-black text-[#0f172a] uppercase tracking-tight mb-4">Compte en attente de validation</h2>
           <p className="text-gray-500 text-sm leading-relaxed mb-8">
-            Merci pour votre inscription ! Votre compte <strong>{role === 'STORE_ADMIN' ? 'Vendeur' : "Centrale d'achat"}</strong> doit être vérifié par notre équipe avant de pouvoir accéder à la console.
+            Merci pour votre inscription ! Votre compte <strong>{role === 'STORE_ADMIN' ? 'Vendeur' : "Accès Grossiste"}</strong> doit être vérifié par notre équipe avant de pouvoir accéder à la console.
             Après activation, vous aurez <strong>1 mois</strong> pour confirmer votre CNI.
           </p>
           <div className="p-4 bg-emerald-50 rounded-2xl text-emerald-700 text-xs font-bold mb-8">
@@ -232,14 +245,80 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ role, onLogin, onCancel }) => {
           </div>
 
           <h2 className="text-xl font-black uppercase tracking-widest leading-none">
-            {isLogin ? 'Connexion' : 'Inscription'}
+            {showResetView ? 'Réinitialisation' : isLogin ? 'Connexion' : 'Inscription'}
           </h2>
           <p className="text-emerald-200 text-[10px] font-bold uppercase tracking-[0.2em] mt-2">
-            {isSuperAdmin ? 'Administration' : isProRole ? 'Espace D\'authentification' : 'Espace Client'}
+            {showResetView ? 'Mot de passe oublié' : isSuperAdmin ? 'Administration' : isProRole ? 'Espace D\'authentification' : 'Espace Client'}
           </p>
         </div>
 
-        <div className="p-8">
+        <div className="p-8 transition-opacity duration-300">
+          {showResetView ? (
+            /* Vue dédiée Réinitialisation mot de passe */
+            resetEmailSent ? (
+              <div className="text-center py-4">
+                <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-700 text-sm font-bold">
+                  Lien envoyé ! Vérifiez votre boîte de réception.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setShowResetView(false); setResetEmailSent(false); }}
+                  className="w-full py-4 bg-[#064e3b] text-white font-black uppercase text-xs tracking-widest rounded-2xl hover:bg-[#065f46] transition-colors"
+                >
+                  Retour
+                </button>
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={onCancel}
+                  className="text-xs font-black uppercase tracking-widest text-gray-400 hover:text-[#064e3b] mb-6"
+                  type="button"
+                >
+                  Retour au menu principal
+                </button>
+                {errorMsg && (
+                  <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-xs font-bold animate-shake">
+                    <AlertCircle size={18} /> {errorMsg}
+                  </div>
+                )}
+                <h3 className="text-lg font-black text-[#0f172a] uppercase tracking-tight mb-2">RÉINITIALISATION</h3>
+                <p className="text-gray-500 text-[12px] mb-6 leading-relaxed">
+                  Entrez votre adresse email pour recevoir un lien de récupération sécurisé.
+                </p>
+                <form onSubmit={handleResetPasswordSubmit} className="space-y-6">
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-4 text-gray-400" size={18} />
+                    <input
+                      type="email"
+                      required
+                      placeholder="Adresse Email"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-transparent focus:border-[#064e3b] rounded-2xl outline-none text-sm font-bold transition-all"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-5 rounded-[1.5rem] bg-[#064e3b] text-white font-black uppercase text-xs tracking-[0.2em] shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 hover:bg-[#065f46] disabled:opacity-50"
+                  >
+                    {loading ? <Loader2 className="animate-spin" size={20} /> : 'ENVOYER LE LIEN'}
+                  </button>
+                </form>
+                <p className="text-center mt-6">
+                  <button
+                    type="button"
+                    onClick={() => { setShowResetView(false); setErrorMsg(null); }}
+                    className="text-[12px] font-bold text-[#064e3b] hover:underline uppercase tracking-wide"
+                  >
+                    Retour à la connexion
+                  </button>
+                </p>
+              </>
+            )
+          ) : (
+            <>
           <button
             onClick={onCancel}
             className="text-xs font-black uppercase tracking-widest text-gray-400 hover:text-[#064e3b] mb-6"
@@ -278,16 +357,6 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ role, onLogin, onCancel }) => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!isSuperAdmin && role === 'BUYER' && (
-              <button
-                type="button"
-                onClick={handleGoogleAuth}
-                className="w-full py-4 border border-gray-200 bg-white text-gray-700 font-black uppercase text-xs rounded-2xl shadow-sm hover:bg-gray-50"
-              >
-                Continuer avec Google
-              </button>
-            )}
-            
             <div className={`grid grid-cols-1 ${(!isLogin && isProRole) ? 'md:grid-cols-2 gap-8' : 'gap-4'}`}>
               
               <div className="space-y-4">
@@ -403,8 +472,10 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ role, onLogin, onCancel }) => {
 
           {isLogin && (
             <p className="text-center mt-6 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-              Mot de passe oublié ? <button type="button" onClick={handleResetPassword} className="text-[#064e3b] hover:underline">Réinitialiser</button>
+              Mot de passe oublié ? <button type="button" onClick={() => { setShowResetView(true); setErrorMsg(null); setSuccessMsg(null); }} className="text-[#064e3b] hover:underline">Réinitialiser</button>
             </p>
+          )}
+            </>
           )}
         </div>
       </div>

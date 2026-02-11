@@ -5,10 +5,10 @@ import {
   fetchMyOrders, fetchVendorProducts, createProduct,
   updateProduct, deleteProduct, uploadProductImage,
   createReview,
-  fetchDeliveries, fetchTickets, updateTicketStatus, fetchPlatformStats,
+  fetchDeliveries, fetchTickets, updateTicketStatus,   fetchPlatformStats, fetchDailySalesForAdmin,
   fetchAllOrders, fetchOrdersBySeller, fetchOrderItemsByOrder, fetchOrderItemStatusHistory, fetchDeliveryEvents,
   createDeliveryEvent, createOrderItemStatus, fetchUsers, updateUserProfile, deleteUserAdmin, reactivateUserAdmin, fetchAuditLogs, createAuditLog,
-  fetchVendorAggregates, fetchProductsByVendor, revokeAccessAdmin, resetUserPasswordAdmin, getUserProfile, createAdminUser,
+  fetchVendorAggregates, fetchProductsByVendor, revokeAccessAdmin, resetUserPasswordAdmin, getUserProfile, createAdminUser, updateUserProfileAdmin,
   fetchB2BThreads, fetchB2BMessages, sendB2BMessage, fetchBuyerProfiles, fetchVendorProfiles, uploadCniImage, requestCniOcr,
   updateOrderStatusAndPayout, createPayoutRequest, fetchPayoutRequests, createWalletTransaction,
   fetchAllPayoutRequests, updatePayoutRequestStatus, fetchSellerEscrowTotal, updateSellerCommissionRate
@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import ReviewModal from '../components/ReviewModal';
 import { supabase } from '../services/supabaseClient';
+import type { DailySale } from '../services/backendService';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 /* --- SHARED COMPONENTS --- */
 
@@ -49,21 +51,54 @@ interface BuyerDashboardProps {
   userProfile?: UserProfile;
   onRecharge?: (amount: number) => void;
   onLogout?: () => void;
+  onRefreshProfile?: () => void;
 }
 
-const BuyerDashboard: React.FC<BuyerDashboardProps> = ({ products, userProfile, onRecharge, onLogout }) => {
+const BuyerDashboard: React.FC<BuyerDashboardProps> = ({ products, userProfile, onRecharge, onLogout, onRefreshProfile }) => {
   const [selectedProductForReview, setSelectedProductForReview] = useState<Product | null>(null);
   const [showRechargeModal, setShowRechargeModal] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false); // État confirmation
-  const [showLogoutSuccess, setShowLogoutSuccess] = useState(false); // État succès déconnexion
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showLogoutSuccess, setShowLogoutSuccess] = useState(false);
   const [rechargeAmount, setRechargeAmount] = useState(5000);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const avatarInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (userProfile?.id) {
       fetchMyOrders(userProfile.id).then(setOrders);
     }
   }, [userProfile]);
+
+  useEffect(() => {
+    setAvatarPreview(userProfile?.avatar || null);
+  }, [userProfile?.avatar]);
+
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userProfile?.id) return;
+    setAvatarFile(file);
+    const url = URL.createObjectURL(file);
+    setAvatarPreview(url);
+    setAvatarSaving(true);
+    try {
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const fileName = `${userProfile.id}_${Date.now()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+      await supabase.from('profiles').update({ avatar: data.publicUrl }).eq('id', userProfile.id);
+      onRefreshProfile?.();
+    } catch (_) {
+      setAvatarPreview(userProfile?.avatar || null);
+    } finally {
+      setAvatarSaving(false);
+      setAvatarFile(null);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
+  };
 
   const handleReviewSubmit = async (rating: number, comment: string) => {
     if (!selectedProductForReview || !userProfile) return;
@@ -96,91 +131,98 @@ const BuyerDashboard: React.FC<BuyerDashboardProps> = ({ products, userProfile, 
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 animate-fade-in relative">
+    <div className="max-w-7xl mx-auto px-4 py-4 md:py-8 animate-fade-in relative">
 
-      {/* NOUVEL EN-TÊTE AVEC ICONE ET DÉCONNEXION */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4  p-6 rounded-2xl ">
-        <div className="flex items-center gap-5">
-          <div className="w-16 h-16 bg-[#064e3b] rounded-full flex items-center justify-center text-white shadow-lg border-4 border-emerald-50">
-            {userProfile?.avatar ? (
-              <img src={userProfile.avatar} className="w-full h-full rounded-full object-cover" />
+      {/* HEADER HORIZONTAL : Avatar + Nom/Rôle + Déconnexion (compact, gain ~100px) */}
+      <div className="flex flex-row items-center gap-3 md:gap-4 mb-4 md:mb-6 p-3 md:p-4 rounded-xl bg-white/80 border border-gray-100">
+        <div className="relative group shrink-0">
+          <div className="w-12 h-12 md:w-14 md:h-14 bg-[#064e3b] rounded-full flex items-center justify-center text-white shadow-md border-2 border-emerald-50 overflow-hidden">
+            {(avatarPreview || userProfile?.avatar) ? (
+              <img src={avatarPreview || userProfile?.avatar || ''} className="w-full h-full object-cover" alt="" />
             ) : (
-              <User size={32} />
+              <User size={24} className="md:w-7 md:h-7" />
             )}
           </div>
-          <div>
-            <h1 className="text-2xl font-black text-[#0f172a] uppercase tracking-tight">Mon Espace Client</h1>
-            <p className="text-gray-500 font-medium">Bienvenue, <span className="text-[#064e3b] font-bold">{userProfile?.name}</span></p>
-          </div>
+          <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarFileChange} />
+          <button
+            type="button"
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={avatarSaving}
+            className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity text-white text-[9px] font-bold uppercase"
+          >
+            {avatarSaving ? '…' : 'Photo'}
+          </button>
         </div>
-
-        <button
-          onClick={handleLogoutClick}
-          className="flex items-center gap-2 px-5 py-2.5 bg-red-50 text-red-600 rounded-xl font-bold uppercase text-xs hover:bg-red-100 transition-colors border border-red-100"
-        >
-          <LogOut size={16} /> Déconnexion
-        </button>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-base md:text-xl font-black text-[#0f172a] uppercase tracking-tight truncate">Mon Espace Client</h1>
+          <p className="text-[11px] md:text-sm text-gray-500 font-medium truncate">Bienvenue, <span className="text-[#064e3b] font-bold">{userProfile?.name}</span></p>
+          <button
+            onClick={handleLogoutClick}
+            className="mt-1 text-[10px] md:text-xs font-semibold text-red-500 hover:text-red-600 border border-transparent hover:border-red-200 rounded px-2 py-0.5 transition-colors"
+          >
+            Déconnexion
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* COLONNE DE GAUCHE : CARTES D'INFOS */}
-        <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
+        {/* COLONNE DE GAUCHE : CARTES D'INFOS (compactes) */}
+        <div className="space-y-4">
 
-          {/* CARTE : INFORMATIONS PERSONNELLES */}
-          <div className=" border border-gray-200 rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Coordonnées</h3>
-              <span className="bg-emerald-100 text-[#064e3b] text-xs font-bold px-2 py-1 rounded-full uppercase">Actif</span>
+          {/* CARTE : COORDONNÉES (grille 2 colonnes, icônes 20px, labels 11px) */}
+          <div className="border border-gray-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Coordonnées</h3>
+              <span className="bg-emerald-100 text-[#064e3b] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Actif</span>
             </div>
-
-            <div className="space-y-5">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-gray-50 rounded-xl text-[#064e3b] border border-gray-100"><Mail size={18} /></div>
-                <div className="overflow-hidden">
-                  <p className="text-xs text-gray-400 font-bold uppercase">Email</p>
-                  <p className="text-sm font-bold text-[#0f172a] truncate">{userProfile?.email}</p>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="p-1.5 bg-gray-50 rounded-lg text-[#064e3b] shrink-0"><Mail size={20} /></div>
+                <div className="overflow-hidden min-w-0">
+                  <p className="text-[11px] text-gray-400 font-bold uppercase">Email</p>
+                  <p className="text-[11px] font-bold text-[#0f172a] truncate">{userProfile?.email || '—'}</p>
                 </div>
               </div>
-
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-gray-50 rounded-xl text-[#064e3b] border border-gray-100"><Phone size={18} /></div>
-                <div>
-                  <p className="text-xs text-gray-400 font-bold uppercase">Téléphone</p>
-                  <p className="text-sm font-bold text-[#0f172a]">{userProfile?.phone || "Non renseigné"}</p>
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="p-1.5 bg-gray-50 rounded-lg text-[#064e3b] shrink-0"><Phone size={20} /></div>
+                <div className="overflow-hidden min-w-0">
+                  <p className="text-[11px] text-gray-400 font-bold uppercase">Tél.</p>
+                  <p className="text-[11px] font-bold text-[#0f172a] truncate">{userProfile?.phone || "—"}</p>
                 </div>
               </div>
-
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-gray-50 rounded-xl text-[#064e3b] border border-gray-100"><MapPin size={18} /></div>
-                <div>
-                  <p className="text-xs text-gray-400 font-bold uppercase">Localisation</p>
-                  <p className="text-sm font-bold text-[#0f172a]">{userProfile?.location || "Abidjan, Côte d'Ivoire"}</p>
+              <div className="col-span-2 flex items-center gap-2 min-w-0">
+                <div className="p-1.5 bg-gray-50 rounded-lg text-[#064e3b] shrink-0"><MapPin size={20} /></div>
+                <div className="overflow-hidden min-w-0">
+                  <p className="text-[11px] text-gray-400 font-bold uppercase">Localisation</p>
+                  <p className="text-[11px] font-bold text-[#0f172a] truncate">{userProfile?.location || "Abidjan, Côte d'Ivoire"}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* CARTE : SOLDE (WALLETS) */}
-          <div className="bg-[#0f172a] text-white p-6 shadow-xl relative overflow-hidden rounded-2xl border-b-4 border-emerald-500">
-            <div className="absolute right-0 top-0 h-full w-2/3 bg-gradient-to-l from-[#064e3b]/40 to-transparent pointer-events-none"></div>
+          {/* CARTE SOLDE COMPACTE : titre + montant sur une ligne, boutons max 36px */}
+          <div className="bg-[#0f172a] text-white p-4 shadow-xl relative overflow-hidden rounded-xl border-b-4 border-emerald-500">
+            <div className="absolute right-0 top-0 h-full w-2/3 bg-gradient-to-l from-[#064e3b]/40 to-transparent pointer-events-none" />
             <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="p-2 bg-emerald-500/20 rounded-full"><Wallet className="text-emerald-400" size={20} /></div>
-                <span className="text-emerald-200 font-bold uppercase text-xs tracking-widest">Mon Solde Ivoire Destock</span>
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-emerald-500/20 rounded-full"><Wallet className="text-emerald-400" size={20} /></div>
+                  <span className="text-emerald-200 font-bold uppercase text-[10px] tracking-widest">Mon Solde</span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-2xl md:text-3xl font-black tracking-tight">{userProfile?.walletBalance?.toLocaleString() || 0}</span>
+                  <span className="text-sm font-medium text-emerald-400">FCFA</span>
+                </div>
               </div>
-              <div className="flex items-baseline gap-1 mb-6">
-                <span className="text-4xl font-black tracking-tight">{userProfile?.walletBalance?.toLocaleString() || 0}</span>
-                <span className="text-lg font-medium text-emerald-400">FCFA</span>
-              </div>
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <button
                   onClick={() => setShowRechargeModal(true)}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 px-4 font-bold uppercase text-xs flex items-center justify-center gap-2 transition-all rounded-lg shadow-lg active:scale-95"
+                  className="flex-1 h-9 max-h-9 bg-emerald-600 hover:bg-emerald-500 text-white py-0 px-3 font-bold uppercase text-[10px] flex items-center justify-center gap-1.5 transition-all rounded-lg shadow-lg active:scale-95"
                 >
-                  <PlusCircle size={16} /> Recharger
+                  <PlusCircle size={14} /> Recharger
                 </button>
-                <button className="flex-1 bg-white/10 hover:bg-white/20 text-white py-3 px-4 font-bold uppercase text-xs flex items-center justify-center gap-2 transition-colors rounded-lg backdrop-blur-sm">
-                  <History size={16} /> Historique
+                <button className="flex-1 h-9 max-h-9 bg-white/10 hover:bg-white/20 text-white py-0 px-3 font-bold uppercase text-[10px] flex items-center justify-center gap-1.5 transition-colors rounded-lg backdrop-blur-sm">
+                  <History size={14} /> Historique
                 </button>
               </div>
             </div>
@@ -188,19 +230,19 @@ const BuyerDashboard: React.FC<BuyerDashboardProps> = ({ products, userProfile, 
         </div>
 
         {/* COLONNE DE DROITE : COMMANDES */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between border-b border-gray-200 pb-4">
-            <h3 className="font-bold text-[#0f172a] uppercase text-lg flex items-center gap-2">
-              <ShoppingBag size={20} className="text-[#064e3b]" /> Mes Commandes ({orders.length})
+        <div className="lg:col-span-2 space-y-4">
+          <div className="flex items-center justify-between border-b border-gray-200 pb-2">
+            <h3 className="font-bold text-[#0f172a] uppercase text-base flex items-center gap-2">
+              <ShoppingBag size={18} className="text-[#064e3b]" /> Mes Commandes ({orders.length})
             </h3>
           </div>
 
           <div className="space-y-4">
             {orders.length === 0 ? (
-              <div className="bg-white border-2 border-dashed border-gray-200 rounded-2xl py-20 flex flex-col items-center justify-center text-center px-6">
-                <div className="p-4 bg-gray-50 rounded-full text-gray-300 mb-4"><ShoppingBag size={48} /></div>
-                <p className="text-gray-400 font-bold uppercase text-xs tracking-widest">Vous n'avez pas encore passé de commande.</p>
-                <p className="text-gray-400 text-sm mt-2">Commencez vos achats pour débloquer des points de fidélité !</p>
+              <div className="bg-white border-2 border-dashed border-gray-200 rounded-xl py-4 flex flex-col items-center justify-center text-center px-4">
+                <div className="p-2 bg-gray-50 rounded-full text-gray-300 mb-2 flex items-center justify-center" style={{ height: 80 }}><ShoppingBag size={40} /></div>
+                <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Aucune commande.</p>
+                <p className="text-gray-400 text-[11px] mt-1">Commencez vos achats pour débloquer des points !</p>
               </div>
             ) : (
               orders.map(order => (
@@ -775,7 +817,7 @@ const ProductsManagerView = ({ userProfile }: { userProfile: UserProfile }) => {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-left border-collapse text-xs md:text-sm">
               <thead className="bg-gray-50 text-xs font-black uppercase text-gray-400 border-b"><tr><th className="p-6">Produit</th><th className="p-6">Prix</th><th className="p-6">Stock</th><th className="p-6">État</th><th className="p-6 text-right">Actions</th></tr></thead>
-              <tbody className="divide-y divide-gray-50">{vendorProducts.map(p => (<tr key={p.id} className="hover:bg-gray-50/50 transition-colors"><td className="p-6"><div className="flex items-center gap-4"><div className="w-14 h-14 bg-gray-100 rounded-none border border-gray-100 overflow-hidden shadow-sm flex-shrink-0">{p.image && <img src={p.image} className="w-full h-full object-cover" />}</div><div><p className="font-black text-[#0f172a] text-sm uppercase">{p.name}</p><p className="text-xs font-bold text-gray-500 uppercase tracking-tighter">{p.category}</p></div></div></td><td className="p-6"><p className="font-black text-[#00A859] text-lg">{p.price.toLocaleString()} F</p><p className="text-xs text-gray-400 line-through">{p.originalPrice.toLocaleString()} F</p></td><td className="p-6"><span className={`text-xs font-black px-3 py-1.5 rounded-none uppercase border ${p.stock < 10 ? 'bg-red-50 text-red-600 border-red-100' : 'bg-emerald-50 text-[#00A859] border-emerald-100'}`}>{p.stock} unités</span></td><td className="p-6"><span className="text-xs font-black uppercase border border-gray-200 px-2 py-1 rounded-none bg-white text-gray-500">{p.status.replace('_', ' ')}</span></td><td className="p-6 text-right space-x-2"><button onClick={() => handleEdit(p)} className="text-blue-600 hover:bg-blue-50 p-2.5 rounded-none transition-colors shadow-sm bg-white border border-gray-100"><Edit size={16} /></button><button onClick={() => handleDelete(p.id)} className="text-red-600 hover:bg-red-50 p-2.5 rounded-none transition-colors shadow-sm bg-white border border-gray-100"><Trash2 size={16} /></button></td></tr>))}</tbody>
+              <tbody className="divide-y divide-gray-50">{vendorProducts.map(p => (<tr key={p.id} className="hover:bg-gray-50/50 transition-colors"><td className="p-6"><div className="flex items-center gap-4"><div className="w-14 h-14 bg-gray-100 rounded-none border border-gray-100 overflow-hidden shadow-sm flex-shrink-0 flex items-center justify-center">{p.image ? <img src={p.image} className="w-full h-full object-cover" alt="" /> : <Package size={24} className="text-gray-400" />}</div><div><p className="font-black text-[#0f172a] text-sm uppercase">{p.name}</p><p className="text-xs font-bold text-gray-500 uppercase tracking-tighter">{p.category}</p></div></div></td><td className="p-6"><p className="font-black text-[#00A859] text-base">{p.price.toLocaleString()} F</p><p className="text-xs text-gray-400 line-through">{p.originalPrice.toLocaleString()} F</p></td><td className="p-6"><span className={`text-xs font-black px-3 py-1.5 rounded-none uppercase border ${p.stock < 10 ? 'bg-red-50 text-red-600 border-red-100' : 'bg-emerald-50 text-[#00A859] border-emerald-100'}`}>{p.stock} unités</span></td><td className="p-6"><span className="text-xs font-black uppercase border border-gray-200 px-2 py-1 rounded-none bg-white text-gray-500">{p.status.replace('_', ' ')}</span></td><td className="p-6 text-right space-x-2"><button onClick={() => handleEdit(p)} className="text-blue-600 hover:bg-blue-50 p-2.5 rounded-none transition-colors shadow-sm bg-white border border-gray-100"><Edit size={16} /></button><button onClick={() => handleDelete(p.id)} className="text-red-600 hover:bg-red-50 p-2.5 rounded-none transition-colors shadow-sm bg-white border border-gray-100"><Trash2 size={16} /></button></td></tr>))}</tbody>
             </table>
           </div>
         )}
@@ -784,58 +826,58 @@ const ProductsManagerView = ({ userProfile }: { userProfile: UserProfile }) => {
   );
 };
 
-const AllProductsView = ({ products }: { products: Product[] }) => {
+const AllProductsView = ({ products, readOnly }: { products: Product[]; readOnly?: boolean }) => {
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center bg-white p-6 rounded-none shadow-sm border border-gray-200">
+    <div className="space-y-4 page-padding py-4 md:py-0">
+      <div className="flex justify-between items-center bg-white p-4 rounded-lg border border-gray-200" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <div>
-          <h1 className="text-2xl font-black text-[#0f172a] uppercase tracking-tight">Tous les Produits</h1>
-          <p className="text-gray-500 text-sm">Catalogue global des vendeurs.</p>
+          <h1 className="mobile-h1 text-[18px] md:text-xl font-bold text-[#0f172a] uppercase tracking-tight">Tous les Produits</h1>
+          <p className="text-[10px] md:text-xs text-[#666] mt-0.5">Catalogue global.{readOnly && <span className="ml-1 text-amber-600 font-bold">(Lecture seule)</span>}</p>
         </div>
       </div>
-      <div className="bg-white rounded-none shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-md border border-gray-200 overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         {products.length === 0 ? (
-          <div className="p-16 text-center text-gray-400">
-            <Package size={48} className="mx-auto mb-4 opacity-50" />
-            <p className="font-bold uppercase text-xs tracking-widest">Aucun produit disponible</p>
+          <div className="p-8 text-center text-gray-400">
+            <Package size={40} className="mx-auto mb-3 opacity-50" />
+            <p className="text-[11px] font-medium uppercase">Aucun produit disponible</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-left border-collapse text-xs md:text-sm">
-              <thead className="bg-gray-50 text-xs font-black uppercase text-gray-400 border-b">
+              <thead className="bg-[#F1F1F1] text-[11px] font-medium uppercase text-[#666] border-b border-[#EEEEEE]">
                 <tr>
-                  <th className="p-6">Produit</th>
-                  <th className="p-6">Prix</th>
-                  <th className="p-6">Stock</th>
-                  <th className="p-6">État</th>
-                  <th className="p-6">Vendeur</th>
+                  <th className="p-3 md:p-4">Produit</th>
+                  <th className="p-3 md:p-4">Prix</th>
+                  <th className="p-3 md:p-4">Stock</th>
+                  <th className="p-3 md:p-4">État</th>
+                  <th className="p-3 md:p-4">Vendeur</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-[#EEEEEE]">
                 {products.map(p => (
-                  <tr key={p.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="p-6">
-                      <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 bg-gray-100 rounded-none border border-gray-100 overflow-hidden shadow-sm flex-shrink-0">
-                          {p.image && <img src={p.image} className="w-full h-full object-cover" />}
+                  <tr key={p.id} className="hover:bg-gray-50/50 transition-colors" style={{ minHeight: 90 }}>
+                    <td className="p-3 md:p-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 md:w-14 md:h-14 bg-[#F1F1F1] rounded-md border border-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                          {p.image ? <img src={p.image} className="w-full h-full object-cover" alt="" /> : <Package size={20} className="text-gray-400" />}
                         </div>
                         <div>
-                          <p className="font-black text-[#0f172a] text-sm uppercase">{p.name}</p>
-                          <p className="text-xs font-bold text-gray-500 uppercase tracking-tighter">{p.category}</p>
+                          <p className="font-bold text-[#0f172a] text-[14px] md:text-sm">{p.name}</p>
+                          <p className="text-[10px] text-[#666]">{p.category}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="p-6">
-                      <p className="font-black text-[#00A859] text-lg">{p.price.toLocaleString()} F</p>
-                      <p className="text-xs text-gray-400 line-through">{p.originalPrice.toLocaleString()} F</p>
+                    <td className="p-3 md:p-4 py-4">
+                      <p className="font-bold text-[14px] text-[#00A859]">{p.price.toLocaleString()} F</p>
+                      <p className="text-[10px] text-gray-400 line-through">{p.originalPrice.toLocaleString()} F</p>
                     </td>
-                    <td className="p-6">
-                      <span className={`text-xs font-black px-3 py-1.5 rounded-none uppercase border ${p.stock < 10 ? 'bg-red-50 text-red-600 border-red-100' : 'bg-emerald-50 text-[#00A859] border-emerald-100'}`}>{p.stock} unités</span>
+                    <td className="p-3 md:p-4 py-4">
+                      <span className={`text-[11px] font-medium px-2 py-1 rounded uppercase ${p.stock < 10 ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-[#00A859]'}`}>{p.stock} unités</span>
                     </td>
-                    <td className="p-6">
-                      <span className="text-xs font-black uppercase border border-gray-200 px-2 py-1 rounded-none bg-white text-gray-500">{p.status.replace('_', ' ')}</span>
+                    <td className="p-3 md:p-4 py-4">
+                      <span className="text-[11px] font-medium border border-gray-200 px-2 py-0.5 rounded bg-white text-gray-500">{p.status.replace('_', ' ')}</span>
                     </td>
-                    <td className="p-6 text-xs font-bold text-gray-500 uppercase">{p.supplier || '—'}</td>
+                    <td className="p-3 md:p-4 py-4 text-[12px] font-medium text-[#666]">{p.supplier || '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1294,17 +1336,31 @@ const DeliveryTrackingView = ({ sellerId, actorId }: { sellerId?: string; actorI
 };
 
 // 3. CREATE ADMINS (Super Admin)
-const AdminCreateView = () => {
+const AdminCreateView = ({ readOnly = false }: { readOnly?: boolean }) => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<UserRole>('STORE_ADMIN');
+  const [role, setRole] = useState<UserRole>('ADMIN');
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [currentAdminId, setCurrentAdminId] = useState<string | null>(null);
+  const [superAdmins, setSuperAdmins] = useState<any[]>([]);
+  const [admins, setAdmins] = useState<any[]>([]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentAdminId(data.user?.id || null));
+  }, []);
+
+  useEffect(() => {
+    const load = async () => {
+      const [sa, ad] = await Promise.all([
+        fetchUsers({ role: 'SUPER_ADMIN', pageSize: 100 }),
+        fetchUsers({ role: 'ADMIN', pageSize: 100 })
+      ]);
+      setSuperAdmins(sa.data);
+      setAdmins(ad.data);
+    };
+    load();
   }, []);
 
   const handleCreate = async () => {
@@ -1333,7 +1389,13 @@ const AdminCreateView = () => {
       setEmail('');
       setPassword('');
       setFullName('');
-      setRole('STORE_ADMIN');
+      setRole('ADMIN');
+      const [sa, ad] = await Promise.all([
+        fetchUsers({ role: 'SUPER_ADMIN', pageSize: 100 }),
+        fetchUsers({ role: 'ADMIN', pageSize: 100 })
+      ]);
+      setSuperAdmins(sa.data);
+      setAdmins(ad.data);
     } catch (err: any) {
       setStatusMsg(err.message || "Erreur lors de la création.");
     } finally {
@@ -1342,54 +1404,91 @@ const AdminCreateView = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in p-4 md:p-4 md:p-8">
-      <div className="flex justify-between items-center bg-white p-6 rounded-none shadow-sm border border-gray-200">
+    <div className="space-y-4 animate-fade-in page-padding py-4 md:p-8">
+      <div className="flex justify-between items-center bg-white p-4 rounded-lg border border-gray-200" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <div>
-          <h1 className="text-2xl font-black text-[#0f172a] uppercase tracking-tight">Créer un Admin</h1>
-          <p className="text-gray-500 text-sm">Ajoutez un admin et limitez ses onglets selon son rôle.</p>
+          <h1 className="mobile-h1 text-[18px] md:text-xl font-bold uppercase tracking-tight leading-tight mb-1 text-[#0f172a]">Créer un Admin</h1>
+          <p className="text-[10px] md:text-xs text-[#666]">Super Admin et Admin (lecture seule).{readOnly && <span className="ml-1 text-amber-600 font-bold">(Lecture seule)</span>}</p>
         </div>
       </div>
-      <div className="bg-white p-6 rounded-none border border-gray-200 shadow-sm space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {!readOnly && (
+        <div className="bg-white p-4 rounded-md border border-gray-200 space-y-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Nom complet</label>
-            <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full border border-gray-200 px-3 py-2 rounded-none text-sm" placeholder="Ex: Admin Magasin" />
+              <label className="block text-[11px] font-bold text-[#666] mb-1">Nom complet</label>
+              <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full h-[44px] border border-gray-200 px-3 rounded-lg text-[14px] bg-[#F1F1F1]" placeholder="Ex: Admin Magasin" />
           </div>
           <div>
-            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Rôle</label>
-            <select value={role} onChange={(e) => setRole(e.target.value as UserRole)} className="w-full border border-gray-200 px-3 py-2 rounded-none text-xs font-bold uppercase">
-              <option value="STORE_ADMIN">STORE_ADMIN</option>
-              <option value="PARTNER_ADMIN">PARTNER_ADMIN</option>
-              <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+              <label className="block text-[12px] font-medium uppercase text-[#666] mb-1">Rôle</label>
+              <select value={role} onChange={(e) => setRole(e.target.value as UserRole)} className="w-full h-[44px] border border-gray-200 px-3 rounded-md text-[14px] font-medium uppercase bg-[#F1F1F1]">
+                <option value="ADMIN">Admin (lecture seule)</option>
+                <option value="SUPER_ADMIN">Super Admin</option>
             </select>
           </div>
           <div>
-            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Email</label>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border border-gray-200 px-3 py-2 rounded-none text-sm" placeholder="admin@ivoiredestock.com" />
+              <label className="block text-[12px] font-medium uppercase text-[#666] mb-1">Email</label>
+              <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full h-[44px] border border-gray-200 px-3 rounded-md text-[14px] bg-[#F1F1F1]" placeholder="admin@ivoiredestock.com" />
           </div>
           <div>
-            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Mot de passe</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full border border-gray-200 px-3 py-2 rounded-none text-sm" placeholder="Mot de passe temporaire" />
+              <label className="block text-[12px] font-medium uppercase text-[#666] mb-1">Mot de passe</label>
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full h-[44px] border border-gray-200 px-3 rounded-md text-[14px] bg-[#F1F1F1]" placeholder="Mot de passe temporaire" />
           </div>
         </div>
-        {statusMsg && <div className="text-xs font-bold text-gray-500">{statusMsg}</div>}
+          {statusMsg && <div className="text-[12px] font-medium text-gray-500">{statusMsg}</div>}
         <button
           onClick={handleCreate}
           disabled={loading}
-          className="bg-[#00A859] text-white px-6 py-3 rounded-none font-black uppercase text-xs shadow-md disabled:opacity-50"
+            className="w-full h-[45px] bg-[#00A859] text-white rounded-lg font-bold uppercase text-[13px] disabled:opacity-50"
+            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
         >
           {loading ? 'Création...' : 'Créer Admin'}
         </button>
+        </div>
+      )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white p-4 rounded-md border border-gray-200" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <h2 className="text-[15px] font-bold uppercase tracking-tight border-b border-[#EEEEEE] pb-2 mb-3 text-[#0f172a]">Super Admins</h2>
+          {superAdmins.length === 0 ? (
+            <p className="text-sm text-gray-500 font-bold">Aucun super admin.</p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {superAdmins.map(u => (
+                <li key={u.id} className="flex items-center justify-between border-b border-[#EEEEEE] py-2">
+                  <span className="text-[14px] font-bold text-[#0f172a]">{u.full_name || '—'}</span>
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">Super Admin</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="bg-white p-4 rounded-md border border-gray-200" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <h2 className="text-[15px] font-bold uppercase tracking-tight border-b border-[#EEEEEE] pb-2 mb-3 text-[#0f172a]">Admins (lecture seule)</h2>
+          {admins.length === 0 ? (
+            <p className="text-sm text-gray-500 font-bold">Aucun admin.</p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {admins.map(u => (
+                <li key={u.id} className="flex items-center justify-between border-b border-[#EEEEEE] py-2">
+                  <span className="text-[14px] font-bold text-[#0f172a]">{u.full_name || '—'}</span>
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-blue-50 text-blue-700">Admin</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
 // 4. USERS (Super Admin)
-const UsersManagerView = () => {
+const UsersManagerView = ({ readOnly = false }: { readOnly?: boolean }) => {
+  type CategoryTab = 'centrales' | 'vendeurs' | 'clients';
   const [users, setUsers] = useState<any[]>([]);
   const [query, setQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState<UserRole | 'ALL'>('ALL');
+  const [categoryTab, setCategoryTab] = useState<CategoryTab>('centrales');
+  const roleFilterByCategory: Record<CategoryTab, UserRole> = { centrales: 'PARTNER_ADMIN', vendeurs: 'STORE_ADMIN', clients: 'BUYER' };
+  const roleFilter = roleFilterByCategory[categoryTab];
   const [statusFilter, setStatusFilter] = useState<string | 'ALL'>('ALL');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -1401,6 +1500,11 @@ const UsersManagerView = () => {
   const [editBusiness, setEditBusiness] = useState('');
   const [editStatus, setEditStatus] = useState('ACTIVE');
   const [currentAdminId, setCurrentAdminId] = useState<string | null>(null);
+  const [userMsg, setUserMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const showUserMsg = (text: string, type: 'success' | 'error') => {
+    setUserMsg({ text, type });
+    setTimeout(() => setUserMsg(null), 3000);
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -1425,7 +1529,8 @@ const UsersManagerView = () => {
   };
 
   const saveEdit = async (id: string) => {
-    await updateUserProfile(id, {
+    try {
+      await updateUserProfileAdmin(id, {
       role: editRole,
       business_name: editBusiness || null,
       status: editStatus
@@ -1441,10 +1546,15 @@ const UsersManagerView = () => {
     setUsers(refreshed.data);
     setTotalCount(refreshed.count);
     setEditingId(null);
+      showUserMsg('Modifications enregistrées.', 'success');
+    } catch (e: any) {
+      showUserMsg(e?.message || 'Erreur lors de la sauvegarde.', 'error');
+    }
   };
 
   const banUser = async (id: string) => {
-    await updateUserProfile(id, { status: 'BANNED' });
+    try {
+      await updateUserProfileAdmin(id, { status: 'BANNED' });
     if (currentAdminId) await createAuditLog({
       actor_id: currentAdminId,
       action: 'USER_BAN',
@@ -1454,9 +1564,14 @@ const UsersManagerView = () => {
     const refreshed = await fetchUsers({ query, role: roleFilter, status: statusFilter, fromDate, toDate, page, pageSize });
     setUsers(refreshed.data);
     setTotalCount(refreshed.count);
+      showUserMsg('Utilisateur banni.', 'success');
+    } catch (e: any) {
+      showUserMsg(e?.message || 'Erreur.', 'error');
+    }
   };
 
   const reactivateUser = async (id: string) => {
+    try {
     await reactivateUserAdmin(id);
     if (currentAdminId) await createAuditLog({
       actor_id: currentAdminId,
@@ -1467,9 +1582,14 @@ const UsersManagerView = () => {
     const refreshed = await fetchUsers({ query, role: roleFilter, status: statusFilter, fromDate, toDate, page, pageSize });
     setUsers(refreshed.data);
     setTotalCount(refreshed.count);
+      showUserMsg('Utilisateur réactivé.', 'success');
+    } catch (e: any) {
+      showUserMsg(e?.message || 'Erreur.', 'error');
+    }
   };
 
   const revokeAccess = async (id: string) => {
+    try {
     await revokeAccessAdmin(id);
     if (currentAdminId) await createAuditLog({
       actor_id: currentAdminId,
@@ -1480,9 +1600,14 @@ const UsersManagerView = () => {
     const refreshed = await fetchUsers({ query, role: roleFilter, status: statusFilter, fromDate, toDate, page, pageSize });
     setUsers(refreshed.data);
     setTotalCount(refreshed.count);
+      showUserMsg('Accès révoqué.', 'success');
+    } catch (e: any) {
+      showUserMsg(e?.message || 'Erreur.', 'error');
+    }
   };
 
   const resetPassword = async (id: string, email: string) => {
+    try {
     const result = await resetUserPasswordAdmin(id, email);
     if (result?.action_link) {
       alert(`Lien de réinitialisation: ${result.action_link}`);
@@ -1495,10 +1620,14 @@ const UsersManagerView = () => {
       entity: 'profiles',
       entity_id: id
     });
+    } catch (e: any) {
+      showUserMsg(e?.message || 'Erreur.', 'error');
+    }
   };
 
   const deleteUser = async (id: string) => {
     if (!window.confirm("Supprimer définitivement cet utilisateur ?")) return;
+    try {
     await deleteUserAdmin(id);
     if (currentAdminId) await createAuditLog({
       actor_id: currentAdminId,
@@ -1509,6 +1638,10 @@ const UsersManagerView = () => {
     const refreshed = await fetchUsers({ query, role: roleFilter, status: statusFilter, page, pageSize });
     setUsers(refreshed.data);
     setTotalCount(refreshed.count);
+      showUserMsg('Utilisateur supprimé.', 'success');
+    } catch (e: any) {
+      showUserMsg(e?.message || 'Erreur.', 'error');
+    }
   };
 
   const exportCsv = () => {
@@ -1525,32 +1658,33 @@ const UsersManagerView = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in p-4 md:p-4 md:p-8">
-      <div className="flex justify-between items-center bg-white p-6 rounded-none shadow-sm border border-gray-200">
-        <div>
-          <h1 className="text-2xl font-black text-[#0f172a] uppercase tracking-tight">Gestion Utilisateurs</h1>
-          <p className="text-gray-500 text-sm">Contrôle des comptes et des permissions de la plateforme.</p>
+    <div className="space-y-4 animate-fade-in page-padding py-4 md:p-8 min-w-0">
+      {userMsg && (
+        <div className={`p-3 rounded-lg border-l-4 text-[12px] leading-snug ${userMsg.type === 'success' ? 'bg-emerald-50 border-emerald-500 text-emerald-800' : 'bg-red-50 border-red-500 text-red-800'}`}>
+          {userMsg.text}
         </div>
-        <div className="flex gap-3">
-          <input value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} type="text" placeholder="Nom, email..." className="border-2 border-gray-50 bg-gray-50 rounded-none px-4 py-2 text-sm focus:outline-none focus:border-[#00A859] focus:bg-white" />
-          <button onClick={exportCsv} className="bg-[#00A859] text-white px-5 py-2 rounded-none font-black uppercase text-xs shadow-md">Exporter CSV</button>
+      )}
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-white p-4 rounded-lg border border-gray-200" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <div>
+          <h1 className="mobile-h1 text-[18px] md:text-xl font-bold uppercase tracking-tight leading-tight mb-1 text-[#0f172a]">Gestion Utilisateurs</h1>
+          <p className="text-[10px] md:text-xs text-[#666]">Centrales, vendeurs et clients.{readOnly && <span className="ml-1 text-amber-600 font-bold">(Lecture seule)</span>}</p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} type="text" placeholder="Nom, email..." className="h-[44px] border border-gray-200 rounded-md px-3 text-[14px] bg-[#F1F1F1] focus:outline-none focus:border-[#00A859]" />
+          {!readOnly && <button onClick={exportCsv} className="h-[44px] bg-[#00A859] text-white rounded-md font-bold uppercase text-[13px]">Exporter CSV</button>}
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-none border border-gray-200 shadow-sm flex flex-wrap gap-4 items-end">
-        <div>
-          <label className="block text-xs font-black uppercase text-gray-400 mb-1">Rôle</label>
-          <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value as UserRole | 'ALL'); setPage(1); }} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold uppercase">
-            <option value="ALL">Tous</option>
-            <option value="BUYER">BUYER</option>
-            <option value="STORE_ADMIN">STORE_ADMIN</option>
-            <option value="PARTNER_ADMIN">PARTNER_ADMIN</option>
-            <option value="SUPER_ADMIN">SUPER_ADMIN</option>
-          </select>
+      <div className="flex flex-nowrap border-b border-gray-200 bg-white rounded-lg overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <button type="button" onClick={() => { setCategoryTab('centrales'); setPage(1); }} className={`filter-btn flex-1 min-w-0 h-8 text-[12px] font-bold uppercase ${categoryTab === 'centrales' ? 'bg-[#00A859] text-white' : 'bg-[#F1F1F1] text-gray-600'}`}>Centrales</button>
+        <button type="button" onClick={() => { setCategoryTab('vendeurs'); setPage(1); }} className={`filter-btn flex-1 min-w-0 h-8 text-[12px] font-bold uppercase ${categoryTab === 'vendeurs' ? 'bg-[#00A859] text-white' : 'bg-[#F1F1F1] text-gray-600'}`}>Vendeurs</button>
+        <button type="button" onClick={() => { setCategoryTab('clients'); setPage(1); }} className={`filter-btn flex-1 min-w-0 h-8 text-[12px] font-bold uppercase ${categoryTab === 'clients' ? 'bg-[#00A859] text-white' : 'bg-[#F1F1F1] text-gray-600'}`}>Clients</button>
         </div>
+
+      <div className="bg-white p-3 rounded-md border border-gray-200 flex flex-wrap gap-3 items-end" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <div>
-          <label className="block text-xs font-black uppercase text-gray-400 mb-1">Statut</label>
-          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold uppercase">
+          <label className="block text-[12px] font-medium text-[#666] mb-1">Statut</label>
+          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="h-[44px] border border-gray-200 px-3 rounded-md text-[14px] font-medium uppercase bg-[#F1F1F1]">
             <option value="ALL">Tous</option>
             <option value="ACTIVE">ACTIVE</option>
             <option value="PENDING">PENDING</option>
@@ -1560,36 +1694,38 @@ const UsersManagerView = () => {
           </select>
         </div>
         <div>
-          <label className="block text-xs font-black uppercase text-gray-400 mb-1">Page size</label>
-          <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold uppercase">
+          <label className="block text-[12px] font-medium text-[#666] mb-1">Page size</label>
+          <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} className="h-[44px] border border-gray-200 px-3 rounded-md text-[14px] font-medium uppercase bg-[#F1F1F1]">
             {[5, 10, 20, 50].map(size => <option key={size} value={size}>{size}</option>)}
           </select>
         </div>
       </div>
 
-      <div className="bg-white rounded-none border border-gray-200 overflow-x-auto shadow-sm">
-        <table className="w-full min-w-[720px] text-left text-xs md:text-sm">
-          <thead className="bg-gray-50 text-xs font-black uppercase text-gray-400 border-b">
-            <tr><th className="p-6">Utilisateur</th><th className="p-6">Rôle</th><th className="p-6">Business</th><th className="p-6">Statut</th><th className="p-6 text-right">Actions</th></tr>
+      <div className="bg-white rounded-md border border-gray-200 overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-left border-collapse text-xs md:text-sm">
+            <thead className="bg-gray-50 text-[11px] font-bold uppercase text-[#666] border-b border-[#EEEEEE]">
+              <tr><th className="p-3 md:p-4">Utilisateur</th><th className="p-3 md:p-4 text-[11px] font-medium uppercase text-[#666]">Rôle</th><th className="p-3 md:p-4 text-[11px] font-medium uppercase text-[#666]">Business</th><th className="p-3 md:p-4 text-[11px] font-medium uppercase text-[#666]">Statut</th>{!readOnly && <th className="p-3 md:p-4 text-[11px] font-medium uppercase text-[#666] text-right">Actions</th>}</tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-[#EEEEEE]">
             {users.map(u => (
               <tr key={u.id} className="hover:bg-gray-50/50 transition-colors">
-                <td className="p-6">
-                  <div className="font-black text-[#0f172a] text-sm uppercase tracking-tight">{u.full_name || '—'}</div>
-                  <div className="text-xs text-gray-500 font-bold">{u.email || ''}</div>
+                <td className="p-3 md:p-4 text-[14px] py-4">
+                  <div className="font-semibold text-[#0f172a] text-[14px] leading-tight">{u.full_name || '—'}</div>
+                  <div className="text-[11px] text-gray-500 leading-snug">{u.email || ''}</div>
                 </td>
-                <td className="p-6">
+                <td className="p-3 md:p-4 py-4">
                   {editingId === u.id ? (
-                    <select value={editRole} onChange={(e) => setEditRole(e.target.value as UserRole)} className="border border-gray-200 text-xs font-bold uppercase px-2 py-1 rounded-none">
+                    <select value={editRole} onChange={(e) => setEditRole(e.target.value as UserRole)} className="border border-gray-200 text-[12px] font-medium uppercase px-2 py-1 rounded-md bg-[#F1F1F1]">
                       <option value="BUYER">BUYER</option>
                       <option value="STORE_ADMIN">STORE_ADMIN</option>
                       <option value="PARTNER_ADMIN">PARTNER_ADMIN</option>
+                      <option value="ADMIN">ADMIN</option>
                       <option value="SUPER_ADMIN">SUPER_ADMIN</option>
                     </select>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs font-black px-2 py-1 rounded-none uppercase border ${u.role === 'STORE_ADMIN' ? 'bg-purple-50 text-purple-700 border-purple-100' : u.role === 'PARTNER_ADMIN' ? 'bg-blue-50 text-blue-700 border-blue-100' : u.role === 'SUPER_ADMIN' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-gray-50 text-gray-600 border-gray-200'}`}>{u.role || 'BUYER'}</span>
+                      <span className={`text-xs font-black px-2 py-1 rounded-none uppercase border ${u.role === 'STORE_ADMIN' ? 'bg-purple-50 text-purple-700 border-purple-100' : u.role === 'PARTNER_ADMIN' ? 'bg-blue-50 text-blue-700 border-blue-100' : u.role === 'SUPER_ADMIN' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : u.role === 'ADMIN' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-gray-50 text-gray-600 border-gray-200'}`}>{u.role === 'SUPER_ADMIN' ? 'Super Admin' : u.role === 'ADMIN' ? 'Admin' : (u.role || 'BUYER')}</span>
                       {u.cni_status === 'VERIFIED' && (
                         <span className="text-[10px] font-black uppercase bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-full">
                           CNI validée
@@ -1598,14 +1734,14 @@ const UsersManagerView = () => {
                     </div>
                   )}
                 </td>
-                <td className="p-6 text-xs font-bold text-gray-500 uppercase">
+                <td className="p-3 md:p-4 py-4 text-[12px] font-medium text-gray-500 uppercase">
                   {editingId === u.id ? (
-                    <input value={editBusiness} onChange={(e) => setEditBusiness(e.target.value)} className="border border-gray-200 px-2 py-1 rounded-none text-xs" />
+                    <input value={editBusiness} onChange={(e) => setEditBusiness(e.target.value)} className="border border-gray-200 px-2 py-1 rounded-md text-[12px] bg-[#F1F1F1]" />
                   ) : (
                     u.business_name || '-'
                   )}
                 </td>
-                <td className="p-6">
+                <td className="p-3 md:p-4 py-4">
                   {editingId === u.id ? (
                     <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)} className="border border-gray-200 text-xs font-bold uppercase px-2 py-1 rounded-none">
                       <option value="ACTIVE">ACTIVE</option>
@@ -1622,10 +1758,11 @@ const UsersManagerView = () => {
                     <span className="text-red-600 font-black text-xs flex items-center gap-1 uppercase"><Ban size={12} /> Banni</span>
                   )}
                 </td>
-                <td className="p-6 text-right space-x-2">
+                {!readOnly && (
+                <td className="p-3 md:p-4 py-4 text-right space-x-2">
                   {editingId === u.id ? (
                     <>
-                      <button onClick={() => saveEdit(u.id)} className="p-2 hover:bg-emerald-50 rounded-none text-emerald-600"><Check size={16} /></button>
+                      <button onClick={() => saveEdit(u.id)} className="p-2 hover:bg-emerald-50 rounded-lg text-emerald-600"><Check size={16} /></button>
                       <button onClick={cancelEdit} className="p-2 hover:bg-gray-100 rounded-none text-gray-500"><X size={16} /></button>
                     </>
                   ) : (
@@ -1639,10 +1776,12 @@ const UsersManagerView = () => {
                     </>
                   )}
                 </td>
+              )}
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className="flex justify-between items-center text-xs text-gray-500">
@@ -1849,7 +1988,6 @@ const SettingsView = ({ userProfile }: { userProfile?: UserProfile }) => {
   const [password, setPassword] = useState('');
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [avatarEnabled, setAvatarEnabled] = useState(false);
   const [lookupId, setLookupId] = useState('');
   const [lookupProfile, setLookupProfile] = useState<UserProfile | null>(null);
   const [isLookupLoading, setIsLookupLoading] = useState(false);
@@ -2039,8 +2177,8 @@ const SettingsView = ({ userProfile }: { userProfile?: UserProfile }) => {
         <div className="bg-[#43a047] p-5 rounded-none shadow-[0_18px_40px_rgba(0,0,0,0.2)]">
           <p className="text-xs font-black uppercase text-white/80 mb-2">Carte d'identité</p>
           <div className="flex gap-4">
-            <div className="w-28 h-32 bg-white/90 border border-white/60">
-              {avatarPreview ? <img src={avatarPreview} className="w-full h-full object-cover" /> : null}
+            <div className="w-28 h-32 bg-white/90 border border-white/60 rounded flex items-center justify-center overflow-hidden">
+              {avatarPreview ? <img src={avatarPreview} className="w-full h-full object-cover" alt="" /> : <User size={48} className="text-gray-400" />}
             </div>
             <div className="flex-1 space-y-2">
               <div className="bg-white/90 px-3 py-2 text-xs font-bold text-[#0f172a]">ID: {getIdentifier(userProfile)}</div>
@@ -2067,22 +2205,15 @@ const SettingsView = ({ userProfile }: { userProfile?: UserProfile }) => {
           <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Localisation" className="border border-gray-200 p-3 rounded-none text-sm font-bold" />
           <input value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Nom du business (optionnel)" className="border border-gray-200 p-3 rounded-none text-sm font-bold" />
           <div className="col-span-1 md:col-span-2 flex items-center gap-4">
-            <div className="w-14 h-14 rounded-none bg-gray-100 border border-gray-200 overflow-hidden">
-              {avatarPreview ? <img src={avatarPreview} className="w-full h-full object-cover" /> : null}
+            <div className="w-14 h-14 rounded-full bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center shrink-0">
+              {avatarPreview ? <img src={avatarPreview} className="w-full h-full object-cover" alt="" /> : <User size={28} className="text-gray-400" />}
             </div>
-            <label className={`text-xs font-bold uppercase text-gray-500`}>
-              Choisir un avatar
-              <input disabled={!avatarEnabled} type="file" accept="image/*" onChange={(e) => setAvatarFile(e.target.files?.[0] || null)} className="hidden" />
+            <label className="text-xs font-bold uppercase text-gray-500 cursor-pointer hover:text-[#00A859]">
+              Choisir une photo (depuis votre appareil)
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) { setAvatarFile(f); setAvatarPreview(URL.createObjectURL(f)); } }} />
             </label>
-            <button
-              type="button"
-              onClick={() => setAvatarEnabled((v) => !v)}
-              className="ml-auto px-3 py-2 text-xs font-black uppercase border border-gray-200 rounded-none"
-            >
-              {avatarEnabled ? 'Désactiver avatar' : 'Activer avatar'}
-            </button>
           </div>
-          <input disabled={!avatarEnabled} value={avatar} onChange={(e) => setAvatar(e.target.value)} placeholder="URL avatar (optionnel)" className="border border-gray-200 p-3 rounded-none text-sm font-bold col-span-1 md:col-span-2 disabled:opacity-50" />
+          <input value={avatar} onChange={(e) => setAvatar(e.target.value)} placeholder="Ou coller une URL d'avatar (optionnel)" className="border border-gray-200 p-3 rounded-none text-sm font-bold col-span-1 md:col-span-2" />
         </div>
         <div className="flex justify-end gap-3">
           <button onClick={handlePrintCard} className="border border-gray-200 text-gray-700 px-6 py-3 rounded-none text-xs font-black uppercase">
@@ -2095,48 +2226,48 @@ const SettingsView = ({ userProfile }: { userProfile?: UserProfile }) => {
       </div>
 
       {(userProfile?.role === 'STORE_ADMIN' || userProfile?.role === 'PARTNER_ADMIN') && userProfile?.cniStatus !== 'VERIFIED' && (
-        <div className="bg-white rounded-none border border-gray-200 p-6 shadow-sm space-y-4">
-          <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Pièce d'identité (CNI)</h3>
-          <p className="text-xs text-gray-500">Recto/verso requis pour vérification.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label className="border-2 border-dashed border-gray-200 rounded-none p-4 text-xs font-bold text-gray-500 cursor-pointer hover:border-[#00A859]/60">
-              Recto CNI
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  setCniRectoFile(file);
-                  setCniRectoPreview(URL.createObjectURL(file));
-                }
-              }} />
-              {cniRectoPreview && <img src={cniRectoPreview} className="mt-3 w-full h-40 object-contain border border-gray-200" />}
-            </label>
-            <label className="border-2 border-dashed border-gray-200 rounded-none p-4 text-xs font-bold text-gray-500 cursor-pointer hover:border-[#00A859]/60">
-              Verso CNI
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  setCniVersoFile(file);
-                  setCniVersoPreview(URL.createObjectURL(file));
-                }
-              }} />
-              {cniVersoPreview && <img src={cniVersoPreview} className="mt-3 w-full h-40 object-contain border border-gray-200" />}
-            </label>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-xs font-black uppercase text-gray-400">Vérification</span>
+      <div className="bg-white rounded-none border border-gray-200 p-6 shadow-sm space-y-4">
+        <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Pièce d'identité (CNI)</h3>
+        <p className="text-xs text-gray-500">Recto/verso requis pour vérification.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label className="border-2 border-dashed border-gray-200 rounded-none p-4 text-xs font-bold text-gray-500 cursor-pointer hover:border-[#00A859]/60">
+            Recto CNI
+            <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                setCniRectoFile(file);
+                setCniRectoPreview(URL.createObjectURL(file));
+              }
+            }} />
+            {cniRectoPreview && <img src={cniRectoPreview} className="mt-3 w-full h-40 object-contain border border-gray-200" />}
+          </label>
+          <label className="border-2 border-dashed border-gray-200 rounded-none p-4 text-xs font-bold text-gray-500 cursor-pointer hover:border-[#00A859]/60">
+            Verso CNI
+            <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                setCniVersoFile(file);
+                setCniVersoPreview(URL.createObjectURL(file));
+              }
+            }} />
+            {cniVersoPreview && <img src={cniVersoPreview} className="mt-3 w-full h-40 object-contain border border-gray-200" />}
+          </label>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-xs font-black uppercase text-gray-400">Vérification</span>
             <span className={`text-xs font-black uppercase ${cniStatus === 'FAILED' ? 'text-red-600' : 'text-orange-600'}`}>
               {userProfile?.cniStatus === 'PENDING' ? 'En attente' : 'À soumettre'}
-            </span>
+          </span>
             <button onClick={handleCniSubmit} className="ml-auto bg-[#00A859] text-white px-4 py-2 rounded-none text-xs font-black uppercase disabled:opacity-50" disabled={!cniRectoFile || !cniVersoFile}>
               Soumettre
-            </button>
-          </div>
+          </button>
         </div>
-      )}
+          </div>
+        )}
       {(userProfile?.role === 'STORE_ADMIN' || userProfile?.role === 'PARTNER_ADMIN') && userProfile?.cniStatus === 'VERIFIED' && (
         <div className="bg-emerald-50 border border-emerald-100 p-4 text-emerald-700 text-xs font-bold rounded-none">
           Votre CNI a été vérifiée.
-        </div>
+      </div>
       )}
 
       {userProfile?.role === 'SUPER_ADMIN' && (
@@ -2214,7 +2345,7 @@ const SettingsView = ({ userProfile }: { userProfile?: UserProfile }) => {
   );
 };
 
-const VendorStockView = () => {
+const VendorStockView = ({ readOnly = false }: { readOnly?: boolean } = {}) => {
   const [vendors, setVendors] = useState<any[]>([]);
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
   const [vendorProducts, setVendorProducts] = useState<any[]>([]);
@@ -2289,7 +2420,7 @@ const VendorStockView = () => {
   );
 };
 
-const VendorBenefitsView = () => {
+const VendorBenefitsView = ({ readOnly = false }: { readOnly?: boolean } = {}) => {
   const [vendors, setVendors] = useState<any[]>([]);
 
   useEffect(() => {
@@ -2347,7 +2478,7 @@ const VendorBenefitsView = () => {
   );
 };
 
-const VendorProductsView = () => {
+const VendorProductsView = ({ readOnly = false }: { readOnly?: boolean } = {}) => {
   const [vendors, setVendors] = useState<any[]>([]);
   const [selectedVendorId, setSelectedVendorId] = useState<string>('');
   const [products, setProducts] = useState<any[]>([]);
@@ -2462,9 +2593,9 @@ const StoreStatsDashboard = ({ products, userProfile }: { products: Product[], u
   };
 
   return (
-    <div className="p-4 md:p-4 md:p-8 animate-fade-in">
-      <div className="flex flex-wrap items-center gap-3 mb-8">
-        <h2 className="text-3xl font-black text-[#0f172a] uppercase tracking-tight">Tableau de bord : {userProfile?.businessName}</h2>
+    <div className="px-3 py-3 md:p-8 animate-fade-in">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <h2 className="text-[15px] md:text-xl font-bold text-[#0f172a] uppercase tracking-tight leading-tight">Tableau de bord : {userProfile?.businessName}</h2>
         {userProfile?.cniStatus === 'VERIFIED' && (
           <span className="text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-full">
             CNI validée
@@ -2475,19 +2606,19 @@ const StoreStatsDashboard = ({ products, userProfile }: { products: Product[], u
             {Math.max(0, 30 - Math.floor((Date.now() - new Date(userProfile.createdAt).getTime()) / 86400000))} jours restants CNI
           </span>
         )}
-      </div>
-      <div className="grid grid-cols-3 md:grid-cols-3 gap-4 md:gap-6 mb-10">
-        <div className="bg-white p-4 md:p-8 rounded-none shadow-sm border border-gray-100 border-b-4 border-[#00A859]">
-          <h3 className="text-gray-400 text-xs font-black uppercase tracking-widest mb-2">Chiffre d'Affaires</h3>
-          <p className="text-3xl font-black text-[#00A859]">{stats.revenue.toLocaleString()} <span className="text-sm font-medium">FCFA</span></p>
         </div>
-        <div className="bg-white p-4 md:p-8 rounded-none shadow-sm border border-gray-100 border-b-4 border-[#00A859]">
-          <h3 className="text-gray-400 text-xs font-black uppercase tracking-widest mb-2">Ventes Totales</h3>
-          <p className="text-3xl font-black text-[#0f172a]">{stats.totalOrders}</p>
+      <div className="grid grid-cols-3 gap-2 md:gap-4 mb-6">
+        <div className="bg-white p-2 md:p-4 rounded-md border border-gray-100 flex flex-col justify-center min-w-0" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <h3 className="text-[11px] md:text-xs font-medium text-[#666] mb-1 leading-tight">CA Total</h3>
+          <p className="text-[14px] md:text-lg font-bold text-[#00A859] leading-tight">{stats.revenue.toLocaleString()} <span className="text-[10px] font-normal">FCFA</span></p>
         </div>
-        <div className="bg-white p-4 md:p-8 rounded-none shadow-sm border border-gray-100 border-b-4 border-[#00A859]">
-          <h3 className="text-gray-400 text-xs font-black uppercase tracking-widest mb-2">Produits Actifs</h3>
-          <p className="text-3xl font-black text-[#00A859]">{products.filter(p => p.supplier === 'Moi').length}</p>
+        <div className="bg-white p-2 md:p-4 rounded-md border border-gray-100 flex flex-col justify-center min-w-0" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <h3 className="text-[11px] md:text-xs font-medium text-[#666] mb-1 leading-tight">Ventes</h3>
+          <p className="text-[14px] md:text-lg font-bold text-[#0f172a] leading-tight">{stats.totalOrders}</p>
+        </div>
+        <div className="bg-white p-2 md:p-4 rounded-md border border-gray-100 flex flex-col justify-center min-w-0" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <h3 className="text-[11px] md:text-xs font-medium text-[#666] mb-1 leading-tight">Produits</h3>
+          <p className="text-[14px] md:text-lg font-bold text-[#00A859] leading-tight">{products.filter(p => p.supplier === 'Moi').length}</p>
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -2518,15 +2649,22 @@ const StoreStatsDashboard = ({ products, userProfile }: { products: Product[], u
               placeholder="Montant"
               className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold"
             />
-            <select
-              value={payoutMethod}
-              onChange={(e) => setPayoutMethod(e.target.value as any)}
-              className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold"
-            >
-              <option value="WAVE">Wave</option>
-              <option value="OM">Orange Money</option>
-              <option value="MTN">MTN MoMo</option>
-            </select>
+            <div className="flex items-center gap-2">
+              <img
+                src={payoutMethod === 'WAVE' ? '/img/wave.png' : payoutMethod === 'OM' ? '/img/om.png' : '/img/mtn.jpg'}
+                alt=""
+                className="w-8 h-8 object-contain rounded border border-gray-100"
+              />
+              <select
+                value={payoutMethod}
+                onChange={(e) => setPayoutMethod(e.target.value as any)}
+                className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold flex-1"
+              >
+                <option value="WAVE">Wave</option>
+                <option value="OM">Orange Money</option>
+                <option value="MTN">MTN MoMo</option>
+              </select>
+            </div>
             <input
               value={payoutPhone}
               onChange={(e) => setPayoutPhone(e.target.value)}
@@ -2564,45 +2702,121 @@ const StoreStatsDashboard = ({ products, userProfile }: { products: Product[], u
 
 const GlobalStatsDashboard = () => {
   const [stats, setStats] = useState<PlatformStats>({ revenue: 0, totalOrders: 0, activeProducts: 0, totalUsers: 0, totalTickets: 0, totalDeliveries: 0 });
+  const [dailySales, setDailySales] = useState<DailySale[]>([]);
+  const [chartLoading, setChartLoading] = useState(true);
 
   useEffect(() => {
     fetchPlatformStats().then(setStats);
   }, []);
 
+  const chartDays = 5;
+  useEffect(() => {
+    setChartLoading(true);
+    fetchDailySalesForAdmin(chartDays)
+      .then(setDailySales)
+      .catch(() => setDailySales([]))
+      .finally(() => setChartLoading(false));
+  }, []);
+
+  const hasChartData = dailySales.length > 0 && dailySales.some((d) => d.amount > 0);
+  const chartData = dailySales.length > 0 ? dailySales : Array.from({ length: chartDays }, (_, i) => {
+    const d = new Date(Date.now() - (chartDays - 1 - i) * 86400000);
+    d.setHours(0, 0, 0, 0);
+    const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return { date: key, label: `${d.getDate()} ${months[d.getMonth()]}`, amount: 0 };
+  });
+
+  const formatY = (v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v));
+  const showSkeleton = !chartLoading && !hasChartData;
+  const yMax = Math.max(100, ...chartData.map((d) => d.amount));
+
   return (
-    <div className="p-4 md:p-4 md:p-8 animate-fade-in">
-      <h1 className="text-3xl font-black uppercase tracking-tight mb-8">Statistiques Globales Ivoire Destock</h1>
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-4 md:gap-6">
-        <div className="bg-white p-4 md:p-8 rounded-none shadow-sm border border-gray-100 border-b-4 border-[#00A859]">
-          <h3 className="text-gray-400 text-xs font-black uppercase tracking-widest mb-2">Chiffre d'Affaires</h3>
-          <p className="text-3xl font-black text-[#00A859]">{stats.revenue.toLocaleString()} <span className="text-sm font-medium">FCFA</span></p>
+    <div className="page-padding py-4 md:p-8 animate-fade-in max-w-[1400px] space-y-4" style={{ paddingTop: 'max(16px, env(safe-area-inset-top))' }}>
+      <h1 className="mobile-h1 text-[18px] md:text-xl font-bold uppercase tracking-tight leading-tight mb-2 text-[#0f172a]">Statistiques</h1>
+      <p className="text-[10px] md:text-xs text-[#666] mb-3">Vue d&apos;ensemble plateforme</p>
+      <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-4">
+        <div className="bg-white p-2 md:p-4 rounded-md border border-gray-100 flex flex-col justify-center min-w-0" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <h3 className="text-[11px] md:text-xs font-medium text-[#666] mb-1 leading-tight">CA Total</h3>
+          <p className="text-[14px] md:text-lg font-bold text-[#00A859] leading-tight">{stats.revenue.toLocaleString()} <span className="text-[10px] font-normal">FCFA</span></p>
         </div>
-        <div className="bg-white p-4 md:p-8 rounded-none shadow-sm border border-gray-100 border-b-4 border-[#00A859]">
-          <h3 className="text-gray-400 text-xs font-black uppercase tracking-widest mb-2">Ventes Totales</h3>
-          <p className="text-3xl font-black text-[#0f172a]">{stats.totalOrders}</p>
+        <div className="bg-white p-2 md:p-4 rounded-md border border-gray-100 flex flex-col justify-center min-w-0" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <h3 className="text-[11px] md:text-xs font-medium text-[#666] mb-1 leading-tight">Ventes</h3>
+          <p className="text-[14px] md:text-lg font-bold text-[#0f172a] leading-tight">{stats.totalOrders}</p>
         </div>
-        <div className="bg-white p-4 md:p-8 rounded-none shadow-sm border border-gray-100 border-b-4 border-[#00A859]">
-          <h3 className="text-gray-400 text-xs font-black uppercase tracking-widest mb-2">Produits Actifs</h3>
-          <p className="text-3xl font-black text-[#00A859]">{stats.activeProducts}</p>
+        <div className="bg-white p-2 md:p-4 rounded-md border border-gray-100 flex flex-col justify-center min-w-0" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <h3 className="text-[11px] md:text-xs font-medium text-[#666] mb-1 leading-tight">Produits</h3>
+          <p className="text-[14px] md:text-lg font-bold text-[#00A859] leading-tight">{stats.activeProducts}</p>
         </div>
-        <div className="bg-white p-4 md:p-8 rounded-none shadow-sm border border-gray-100 border-b-4 border-[#00A859]">
-          <h3 className="text-gray-400 text-xs font-black uppercase tracking-widest mb-2">Utilisateurs</h3>
-          <p className="text-3xl font-black text-[#00A859]">{stats.totalUsers}</p>
+        <div className="bg-white p-2 md:p-4 rounded-md border border-gray-100 flex flex-col justify-center min-w-0" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <h3 className="text-[11px] md:text-xs font-medium text-[#666] mb-1 leading-tight">Users</h3>
+          <p className="text-[14px] md:text-lg font-bold text-[#00A859] leading-tight">{stats.totalUsers}</p>
         </div>
-        <div className="bg-white p-4 md:p-8 rounded-none shadow-sm border border-gray-100 border-b-4 border-[#00A859]">
-          <h3 className="text-gray-400 text-xs font-black uppercase tracking-widest mb-2">Tickets</h3>
-          <p className="text-3xl font-black text-[#00A859]">{stats.totalTickets}</p>
+        <div className="bg-white p-2 md:p-4 rounded-md border border-gray-100 flex flex-col justify-center min-w-0" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <h3 className="text-[11px] md:text-xs font-medium text-[#666] mb-1 leading-tight">Tickets</h3>
+          <p className="text-[14px] md:text-lg font-bold text-[#00A859] leading-tight">{stats.totalTickets}</p>
         </div>
-        <div className="bg-white p-4 md:p-8 rounded-none shadow-sm border border-gray-100 border-b-4 border-[#00A859]">
-          <h3 className="text-gray-400 text-xs font-black uppercase tracking-widest mb-2">Livraisons</h3>
-          <p className="text-3xl font-black text-[#00A859]">{stats.totalDeliveries}</p>
+        <div className="bg-white p-2 md:p-4 rounded-md border border-gray-100 flex flex-col justify-center min-w-0" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <h3 className="text-[11px] md:text-xs font-medium text-[#666] mb-1 leading-tight">Livraisons</h3>
+          <p className="text-[14px] md:text-lg font-bold text-[#00A859] leading-tight">{stats.totalDeliveries}</p>
+        </div>
+      </div>
+
+      {/* Graphique CA / Ventes par jour */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-4 pt-4 pb-2">
+          <h3 className="text-xs font-bold text-[#0f172a] uppercase tracking-wide">Chiffre d&apos;affaires par jour</h3>
+          <p className="text-[10px] text-[#666] mt-0.5">5 derniers jours</p>
+        </div>
+        <div className="overflow-x-auto" style={{ height: 320 }}>
+          <div style={{ minWidth: Math.max(400, chartData.length * 56), height: 320, padding: '0 16px 16px' }}>
+            {chartLoading ? (
+              <div className="flex items-end gap-1 h-[260px] pt-2 px-2">
+                {Array.from({ length: chartDays }).map((_, i) => (
+                  <div key={i} className="flex-1 min-w-[32px] rounded-t bg-[#F1F1F1]" style={{ height: `${35 + (i % 5) * 12}%` }} />
+                ))}
+              </div>
+            ) : showSkeleton ? (
+              <div className="flex items-end gap-1 h-[260px] pt-2 px-2">
+                {chartData.map((d, i) => (
+                  <div key={d.date} className="flex flex-col items-center flex-1 min-w-[32px]">
+                    <div className="w-full rounded-t bg-[#E5E7EB]" style={{ height: `${40 + (i % 4) * 15}%` }} />
+                    <span className="text-[10px] text-gray-400 mt-1 truncate w-full text-center">{d.label}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 4 }}>
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="#999" axisLine={{ stroke: '#F1F1F1' }} />
+                  <YAxis tickFormatter={formatY} tick={{ fontSize: 10 }} stroke="#999" axisLine={{ stroke: '#F1F1F1' }} domain={[0, yMax]} />
+                  <Tooltip
+                    content={({ active, payload }) =>
+                      active && payload?.[0] ? (
+                        <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-[10px] font-bold">
+                          {payload[0].payload?.label}: {(payload[0].value as number).toLocaleString()} F
+                        </div>
+                      ) : null
+                    }
+                  />
+                  <Bar dataKey="amount" radius={[4, 4, 0, 0]} maxBarSize={36} fill="url(#greenGrad)" />
+                  <defs>
+                    <linearGradient id="greenGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#065f46" />
+                      <stop offset="100%" stopColor="#064e3b" />
+                    </linearGradient>
+                  </defs>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-const PayoutsAdminView = () => {
+const PayoutsAdminView = ({ readOnly = false }: { readOnly?: boolean }) => {
   const [requests, setRequests] = useState<any[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [commissionRate, setCommissionRate] = useState(0.12);
@@ -2692,17 +2906,19 @@ const PayoutsAdminView = () => {
   };
 
   return (
-    <div className="p-4 md:p-8 space-y-6">
-      <h1 className="text-2xl font-black uppercase tracking-tight">Validation des retraits</h1>
-      {msg && <div className="text-xs text-gray-500">{msg}</div>}
-      <div className="bg-white p-6 border border-gray-200 rounded-none">
-        <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-3">Commission centrale</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <div className="px-3 py-3 md:p-8 space-y-4">
+      <h1 className="text-[15px] md:text-xl font-bold uppercase tracking-tight leading-tight mb-1">Validation des retraits{readOnly && <span className="ml-1 text-amber-600 font-bold text-xs">(Lecture seule)</span>}</h1>
+      <p className="text-[10px] md:text-xs text-[#666] mb-3">Retraits et commissions</p>
+      {msg && <div className="text-[12px] text-gray-500">{msg}</div>}
+      {!readOnly && (
+      <div className="bg-white p-4 border border-gray-200 rounded-md" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <h3 className="text-[12px] font-medium text-[#666] mb-2">Commission centrale</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
           <input
             value={sellerId}
             onChange={(e) => setSellerId(e.target.value)}
             placeholder="Seller ID"
-            className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold"
+            className="h-[44px] border border-gray-200 px-3 rounded-md text-[14px] bg-[#F1F1F1]"
           />
           <input
             type="number"
@@ -2711,14 +2927,15 @@ const PayoutsAdminView = () => {
             step={0.01}
             value={commissionRate}
             onChange={(e) => setCommissionRate(Number(e.target.value))}
-            className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold"
+            className="h-[44px] border border-gray-200 px-3 rounded-md text-[14px] bg-[#F1F1F1]"
           />
-          <button onClick={updateCommission} className="bg-[#00A859] text-white px-4 py-2 rounded-none text-xs font-black uppercase">
+          <button onClick={updateCommission} className="h-[45px] bg-[#00A859] text-white rounded-md text-[13px] font-bold uppercase">
             Mettre à jour
           </button>
         </div>
-        <p className="text-[10px] text-gray-400 mt-2">Ex: 0.08 = 8% (centrale), 0.12 = 12% (vendeur)</p>
+        <p className="text-[10px] text-gray-400 mt-1">Ex: 0.08 = 8% (centrale), 0.12 = 12% (vendeur)</p>
       </div>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 border border-gray-200 rounded-none">
           <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-3">Entrées (7 jours)</h3>
@@ -2744,7 +2961,7 @@ const PayoutsAdminView = () => {
               <th className="p-6">Montant</th>
               <th className="p-6">Méthode</th>
               <th className="p-6">Statut</th>
-              <th className="p-6 text-right">Actions</th>
+              {!readOnly && <th className="p-6 text-right">Actions</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -2755,6 +2972,7 @@ const PayoutsAdminView = () => {
                 <td className="p-6 font-black">{Number(r.amount).toLocaleString()} FCFA</td>
                 <td className="p-6 text-xs font-bold uppercase">{r.method}</td>
                 <td className="p-6 text-xs font-bold uppercase">{r.status}</td>
+                {!readOnly && (
                 <td className="p-6 text-right space-x-2">
                   {r.status === 'PENDING' && (
                     <>
@@ -2763,10 +2981,11 @@ const PayoutsAdminView = () => {
                     </>
                   )}
                 </td>
+                )}
               </tr>
             ))}
             {requests.length === 0 && (
-              <tr><td colSpan={6} className="p-6 text-xs text-gray-400">Aucune demande.</td></tr>
+              <tr><td colSpan={readOnly ? 5 : 6} className="p-6 text-xs text-gray-400">Aucune demande.</td></tr>
             )}
           </tbody>
         </table>
@@ -2960,6 +3179,7 @@ interface DashboardProps {
   activeTab?: string;
   onRecharge?: (amount: number) => void;
   onLogout?: () => void;
+  onRefreshProfile?: () => void;
   buyerSection?: 'dashboard' | 'messages';
   onBuyerSectionChange?: (section: 'dashboard' | 'messages') => void;
   initialChatSellerId?: string | null;
@@ -2972,6 +3192,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   activeTab,
   onRecharge,
   onLogout,
+  onRefreshProfile,
   buyerSection = 'dashboard',
   onBuyerSectionChange,
   initialChatSellerId
@@ -2997,16 +3218,19 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       );
     }
-    return <BuyerDashboard products={products} userProfile={userProfile} onRecharge={onRecharge} onLogout={onLogout} />;
+    return <BuyerDashboard products={products} userProfile={userProfile} onRecharge={onRecharge} onLogout={onLogout} onRefreshProfile={onRefreshProfile} />;
   }
 
   const renderAdminContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return role === 'SUPER_ADMIN' ? <GlobalStatsDashboard /> : <StoreStatsDashboard products={products} userProfile={userProfile} />;
+        return (role === 'SUPER_ADMIN' || role === 'ADMIN') ? <GlobalStatsDashboard /> : <StoreStatsDashboard products={products} userProfile={userProfile} />;
       case 'products':
         if (role === 'SUPER_ADMIN') {
           return <AllProductsView products={products} />;
+        }
+        if (role === 'ADMIN') {
+          return <AllProductsView products={products} readOnly />;
         }
         if (userProfile && (role === 'STORE_ADMIN' || role === 'PARTNER_ADMIN')) {
           return <ProductsManagerView userProfile={userProfile} />;
@@ -3017,19 +3241,19 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         );
 
-      case 'orders': return <OrdersManagerView sellerId={role === 'SUPER_ADMIN' ? undefined : userProfile?.id} actorId={userProfile?.id} />;
+      case 'orders': return <OrdersManagerView sellerId={(role === 'SUPER_ADMIN' || role === 'ADMIN') ? undefined : userProfile?.id} actorId={userProfile?.id} />;
       case 'messages': return <B2BMessagesView currentUserId={userProfile?.id} currentUserName={userProfile?.name} currentUserRole={role} />;
-      case 'deliveries': return <DeliveryTrackingView sellerId={role === 'SUPER_ADMIN' ? undefined : userProfile?.id} actorId={userProfile?.id} />;
-      case 'logistics': return <DeliveryTrackingView sellerId={role === 'SUPER_ADMIN' ? undefined : userProfile?.id} actorId={userProfile?.id} />;
-      case 'history': return <OrdersManagerView sellerId={role === 'SUPER_ADMIN' ? undefined : userProfile?.id} actorId={userProfile?.id} />;
+      case 'deliveries': return <DeliveryTrackingView sellerId={(role === 'SUPER_ADMIN' || role === 'ADMIN') ? undefined : userProfile?.id} actorId={userProfile?.id} />;
+      case 'logistics': return <DeliveryTrackingView sellerId={(role === 'SUPER_ADMIN' || role === 'ADMIN') ? undefined : userProfile?.id} actorId={userProfile?.id} />;
+      case 'history': return <OrdersManagerView sellerId={(role === 'SUPER_ADMIN' || role === 'ADMIN') ? undefined : userProfile?.id} actorId={userProfile?.id} />;
       case 'tickets': return <TicketsManagerView />;
-      case 'payouts': return role === 'SUPER_ADMIN' ? <PayoutsAdminView /> : <div className="p-8 text-red-500">Accès Refusé.</div>;
-      case 'admin-create': return role === 'SUPER_ADMIN' ? <AdminCreateView /> : <div className="p-8 text-red-500">Accès Refusé.</div>;
-      case 'users': return role === 'SUPER_ADMIN' ? <UsersManagerView /> : <div className="p-8 text-red-500">Accès Refusé.</div>;
-      case 'audit': return role === 'SUPER_ADMIN' ? <AuditLogsView /> : <div className="p-8 text-red-500">Accès Refusé.</div>;
-      case 'vendor-stock': return role === 'SUPER_ADMIN' ? <VendorStockView /> : <div className="p-8 text-red-500">Accès Refusé.</div>;
-      case 'vendor-benefits': return role === 'SUPER_ADMIN' ? <VendorBenefitsView /> : <div className="p-8 text-red-500">Accès Refusé.</div>;
-      case 'vendor-products': return role === 'SUPER_ADMIN' ? <VendorProductsView /> : <div className="p-8 text-red-500">Accès Refusé.</div>;
+      case 'payouts': return (role === 'SUPER_ADMIN' || role === 'ADMIN') ? <PayoutsAdminView readOnly={role === 'ADMIN'} /> : <div className="p-8 text-red-500">Accès Refusé.</div>;
+      case 'admin-create': return (role === 'SUPER_ADMIN' || role === 'ADMIN') ? <AdminCreateView readOnly={role === 'ADMIN'} /> : <div className="p-8 text-red-500">Accès Refusé.</div>;
+      case 'users': return (role === 'SUPER_ADMIN' || role === 'ADMIN') ? <UsersManagerView readOnly={role === 'ADMIN'} /> : <div className="p-8 text-red-500">Accès Refusé.</div>;
+      case 'audit': return (role === 'SUPER_ADMIN' || role === 'ADMIN') ? <AuditLogsView /> : <div className="p-8 text-red-500">Accès Refusé.</div>;
+      case 'vendor-stock': return (role === 'SUPER_ADMIN' || role === 'ADMIN') ? <VendorStockView readOnly={role === 'ADMIN'} /> : <div className="p-8 text-red-500">Accès Refusé.</div>;
+      case 'vendor-benefits': return (role === 'SUPER_ADMIN' || role === 'ADMIN') ? <VendorBenefitsView readOnly={role === 'ADMIN'} /> : <div className="p-8 text-red-500">Accès Refusé.</div>;
+      case 'vendor-products': return (role === 'SUPER_ADMIN' || role === 'ADMIN') ? <VendorProductsView readOnly={role === 'ADMIN'} /> : <div className="p-8 text-red-500">Accès Refusé.</div>;
       case 'settings': return <SettingsView userProfile={userProfile} />;
 
       default: return <StoreStatsDashboard products={products} userProfile={userProfile} />;

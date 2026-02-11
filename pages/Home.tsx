@@ -48,7 +48,7 @@ const Home: React.FC<HomeProps> = ({
         {/* Reduced opacity for the green overlay */}
         <div className="absolute inset-0 bg-gradient-to-r from-[#064e3b]/60 via-[#064e3b]/30 to-transparent"></div>
         
-        <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-32 flex flex-col md:flex-row items-center">
+        <div className="relative z-10 max-w-7xl mx-auto page-padding px-4 md:px-6 py-12 md:py-32 flex flex-col md:flex-row items-center">
           <div className="md:w-1/2 space-y-6 md:space-y-8">
             <span className="inline-block py-1.5 px-4 bg-black/30 border border-white/20 text-emerald-200 text-xs font-bold uppercase tracking-widest backdrop-blur-sm shadow-sm">
               Plateforme B2B & B2C N°1 en RCI
@@ -79,7 +79,7 @@ const Home: React.FC<HomeProps> = ({
       </section>
 
       {/* Features */}
-      <section className="max-w-7xl mx-auto px-4">
+      <section className="max-w-7xl mx-auto page-padding px-4">
         <div className="grid grid-cols-3 md:grid-cols-3 gap-3 md:gap-8">
           <div className="bg-white p-3 md:p-8 border border-gray-100 shadow-sm hover:shadow-lg transition-all group relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/60 via-white to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -115,11 +115,11 @@ const Home: React.FC<HomeProps> = ({
       </section>
 
       {/* Produits par catégorie : 3 visibles par ligne + scroll horizontal */}
-      <section className="max-w-7xl mx-auto px-4 space-y-8">
-        <div className="flex justify-between items-end pb-4 border-b border-gray-200">
+      <section className="max-w-7xl mx-auto page-padding px-4 space-y-4 md:space-y-8">
+        <div className="flex justify-between items-end pb-3 border-b border-gray-200">
           <div>
-            <h2 className="text-2xl md:text-3xl font-black text-[#0f172a] tracking-tight uppercase">Catalogue</h2>
-            <p className="text-gray-500 mt-1 text-sm">Par catégorie, 3 cartes visibles puis défilement.</p>
+            <h2 className="mobile-h1 text-[18px] md:text-2xl font-bold text-[#0f172a] tracking-tight uppercase">Catalogue</h2>
+            <p className="text-gray-500 mt-0.5 mobile-body text-[12px]">Par catégorie, défilement horizontal.</p>
           </div>
           <button 
             onClick={() => onNavigate('marketplace')}
@@ -133,11 +133,11 @@ const Home: React.FC<HomeProps> = ({
           <div className="text-center py-12 text-gray-500">Aucun produit pour le moment.</div>
         ) : (
           byCategory.map(([category, list]) => (
-            <div key={category}>
-              <h3 className="text-lg font-black text-[#0f172a] uppercase tracking-wide mb-3">{category}</h3>
-              <div className="horizontal-scroll -mx-4 px-4">
+            <div key={category} className="mb-4 md:mb-6">
+              <h3 className="mobile-h2 text-[14px] md:text-lg font-semibold text-[#0f172a] uppercase tracking-wide mb-2">{category}</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
                 {list.map((product) => (
-                  <div key={product.id} className="scroll-card">
+                  <div key={product.id} className="min-w-0">
                     <ProductCard
                       product={product}
                       onAddToCart={onAddToCart}

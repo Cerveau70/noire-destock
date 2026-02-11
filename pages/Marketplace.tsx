@@ -14,6 +14,7 @@ interface MarketplaceProps {
   isAuthenticated: boolean;
   onRequireAuth: () => void;
   onStartChat: (sellerId?: string) => void;
+  onFiltersOpenChange?: (open: boolean) => void;
 }
 
 const Marketplace: React.FC<MarketplaceProps> = ({
@@ -26,7 +27,8 @@ const Marketplace: React.FC<MarketplaceProps> = ({
   onContactChannelChange,
   isAuthenticated,
   onRequireAuth,
-  onStartChat
+  onStartChat,
+  onFiltersOpenChange
 }) => {
   // Filter States
   const [searchTerm, setSearchTerm] = useState('');
@@ -57,6 +59,11 @@ const Marketplace: React.FC<MarketplaceProps> = ({
     }
   }, [maxPrice, priceRange]);
 
+  React.useEffect(() => {
+    onFiltersOpenChange?.(isMobileFiltersOpen);
+    return () => onFiltersOpenChange?.(false);
+  }, [isMobileFiltersOpen, onFiltersOpenChange]);
+
   const filteredProducts = products.filter(product => {
     const name = (product.name || '').toLowerCase();
     const desc = (product.description || '').toLowerCase();
@@ -81,23 +88,11 @@ const Marketplace: React.FC<MarketplaceProps> = ({
     return Array.from(map.entries());
   }, [filteredProducts]);
 
-  const FilterSidebar = () => (
-    <div className="space-y-8">
-      {/* Search */}
-      <div className="relative">
-        <input
-          type="text"
-          placeholder="Rechercher produit..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 border border-gray-200 focus:ring-2 focus:ring-[#064e3b] focus:border-transparent outline-none text-sm bg-white"
-        />
-        <Search className="absolute left-3 top-3.5 text-gray-400" size={16} />
-      </div>
-
+  const FilterSidebar = ({ showResetButton = true }: { showResetButton?: boolean }) => (
+    <div className="space-y-6">
       {/* Price Filter */}
-      <div>
-        <h4 className="font-black text-[#0f172a] text-xs uppercase tracking-wide mb-4 flex items-center">
+      <div className="pt-1">
+        <h4 className="font-bold text-[#0f172a] text-[12px] uppercase tracking-wide mb-3 flex items-center">
           <SlidersHorizontal size={14} className="mr-2 text-[#064e3b]" /> Prix Max: {(priceRange || maxPrice).toLocaleString()} F
         </h4>
         <input
@@ -117,7 +112,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({
 
       {/* Categories */}
       <div>
-        <h4 className="font-black text-[#0f172a] text-xs uppercase tracking-wide mb-3 flex items-center">
+        <h4 className="font-bold text-[#0f172a] text-[12px] uppercase tracking-wide mb-3 flex items-center">
           <Tag size={14} className="mr-2 text-[#064e3b]" /> Catégories
         </h4>
         <div className="space-y-2">
@@ -143,7 +138,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({
 
       {/* Locations */}
       <div>
-        <h4 className="font-black text-[#0f172a] text-xs uppercase tracking-wide mb-3 flex items-center">
+        <h4 className="font-bold text-[#0f172a] text-[12px] uppercase tracking-wide mb-3 flex items-center">
           <MapPin size={14} className="mr-2 text-[#064e3b]" /> Localisation
         </h4>
         <select
@@ -160,7 +155,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({
 
       {/* Status */}
       <div>
-        <h4 className="font-black text-[#0f172a] text-xs uppercase tracking-wide mb-3 flex items-center">
+        <h4 className="font-bold text-[#0f172a] text-[12px] uppercase tracking-wide mb-3 flex items-center">
           <Calendar size={14} className="mr-2 text-[#064e3b]" /> État / Date
         </h4>
         <div className="space-y-2">
@@ -185,50 +180,114 @@ const Marketplace: React.FC<MarketplaceProps> = ({
         </div>
       </div>
 
-      {/* Reset */}
-      <button
-        onClick={() => {
-          setSelectedCategory('ALL');
-          setSelectedLocation('ALL');
-          setSelectedStatus('ALL');
-          setSearchTerm('');
-          setPriceRange(maxPrice);
-        }}
-        className="w-full py-3 border border-gray-200 text-gray-500 font-bold text-xs uppercase hover:bg-gray-50 hover:text-[#064e3b] transition-colors"
-      >
-        Réinitialiser
-      </button>
+      {showResetButton && (
+        <button
+          onClick={() => {
+            setSelectedCategory('ALL');
+            setSelectedLocation('ALL');
+            setSelectedStatus('ALL');
+            setPriceRange(maxPrice);
+            setSearchTerm('');
+          }}
+          className="w-full py-3 border border-gray-200 text-gray-500 font-bold text-xs uppercase hover:bg-gray-50 hover:text-[#064e3b] transition-colors"
+        >
+          Réinitialiser
+        </button>
+      )}
     </div>
   );
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 md:py-8 pb-24 md:pb-8">
-      {/* Mobile Filter Toggle */}
-      <div className="md:hidden mb-6 flex justify-between items-center">
-        <h1 className="text-xl font-black text-[#0f172a] uppercase">Catalogue</h1>
+    <div className="max-w-7xl mx-auto page-padding py-4 md:py-8 pb-24 md:pb-8 space-y-4">
+      {/* 1. Barre de recherche */}
+      <div>
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Rechercher un produit..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full h-[44px] pl-10 pr-4 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#064e3b] focus:border-transparent outline-none text-[14px] bg-[#F1F1F1]"
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+        </div>
+      </div>
+
+      {/* 2. Ligne Catalogue + Filtres */}
+      <div className="flex justify-between items-center">
+        <h1 className="mobile-h1 text-[18px] md:text-xl font-bold text-[#0f172a] uppercase">Catalogue</h1>
         <button
           onClick={() => setIsMobileFiltersOpen(true)}
-          className="flex items-center gap-2 bg-[#064e3b] text-white px-4 py-2 text-xs font-bold uppercase"
+          className="md:hidden flex items-center gap-2 bg-[#064e3b] text-white px-4 py-2.5 text-xs font-bold uppercase rounded-lg"
         >
           <Filter size={14} /> Filtres
         </button>
       </div>
 
-      {/* Mobile Filters Drawer */}
-      {isMobileFiltersOpen && (
-        <div className="fixed inset-0 z-[60] bg-white p-6 overflow-y-auto pb-24">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-xl font-black text-[#0f172a] uppercase">Filtres</h2>
-            <button onClick={() => setIsMobileFiltersOpen(false)}><X size={24} /></button>
-          </div>
-          <FilterSidebar />
+      {/* 3. Pills : scroll horizontal sur mobile (no-wrap) */}
+      <div className="filter-bar-scroll mb-4">
+        {categories.map((cat) => (
           <button
-            onClick={() => setIsMobileFiltersOpen(false)}
-            className="w-full bg-[#064e3b] text-white py-4 mt-8 font-bold uppercase"
+            key={cat}
+            onClick={() => setSelectedCategory(cat)}
+            className={`filter-btn shrink-0 px-4 py-2 rounded-lg text-[12px] font-bold uppercase transition-colors
+              ${selectedCategory === cat
+                ? 'bg-[#0f172a] text-white border border-[#0f172a]'
+                : 'bg-white text-[#0f172a] border border-gray-200 hover:border-[#064e3b] hover:text-[#064e3b]'
+              }
+            `}
           >
-            Voir les résultats
+            {cat === 'ALL' ? 'Toutes' : cat}
           </button>
-        </div>
+        ))}
+      </div>
+
+      {/* Tiroir latéral Filtres (Side Drawer) — 85% largeur, sticky footer */}
+      {isMobileFiltersOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-[59] bg-black/50 backdrop-blur-sm"
+            onClick={() => setIsMobileFiltersOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="fixed inset-y-0 right-0 w-[85%] max-w-md z-[60] bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            {/* Header — Safe Area + fermeture */}
+            <div className="flex-shrink-0 pt-[max(16px,env(safe-area-inset-top))] pb-4 px-4 flex justify-between items-center border-b border-gray-100">
+              <h2 className="text-lg font-black text-[#0f172a] uppercase tracking-tight">Filtres</h2>
+              <button onClick={() => setIsMobileFiltersOpen(false)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600" aria-label="Fermer">
+                <X size={24} />
+              </button>
+            </div>
+            {/* Contenu scrollable — padding 16px */}
+            <div className="flex-1 overflow-y-auto px-4 py-6">
+              <FilterSidebar showResetButton={false} />
+            </div>
+            {/* Sticky Footer — Réinitialiser + Voir les résultats */}
+            <div className="flex-shrink-0 p-4 border-t border-gray-200 bg-white pb-[max(16px,env(safe-area-inset-bottom))]">
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCategory('ALL');
+                    setSelectedLocation('ALL');
+                    setSelectedStatus('ALL');
+                    setPriceRange(maxPrice);
+                    setSearchTerm('');
+                  }}
+                  className="py-3 px-4 border border-gray-300 text-gray-600 font-bold text-xs uppercase rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  Réinitialiser
+                </button>
+                <button
+                  onClick={() => setIsMobileFiltersOpen(false)}
+                  className="flex-1 py-3 bg-[#064e3b] text-white font-bold text-xs uppercase rounded-xl hover:bg-[#065f46] transition-colors"
+                >
+                  Voir les résultats
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       <div className="flex flex-col md:flex-row gap-8">
@@ -254,13 +313,13 @@ const Marketplace: React.FC<MarketplaceProps> = ({
               <p className="text-gray-500 text-sm max-w-xs mx-auto">Essayez de modifier vos filtres ou votre recherche.</p>
             </div>
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-6 md:space-y-8">
               {byCategory.map(([category, list]) => (
                 <div key={category}>
-                  <h3 className="text-lg font-black text-[#0f172a] uppercase tracking-wide mb-3">{category}</h3>
-                  <div className="horizontal-scroll -mx-4 px-4 md:mx-0 md:px-0">
+                  <h3 className="mobile-h2 text-[14px] md:text-lg font-semibold text-[#0f172a] uppercase tracking-wide mb-2">{category}</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
                     {list.map((product) => (
-                      <div key={product.id} className="scroll-card">
+                      <div key={product.id} className="min-w-0">
                         <ProductCard
                           product={product}
                           onAddToCart={onAddToCart}

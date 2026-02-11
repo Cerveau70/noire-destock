@@ -24,12 +24,14 @@ const App: React.FC = () => {
   const [showCookieDetails, setShowCookieDetails] = useState(false);
   const [role, setRole] = useState<UserRole>('BUYER');
   const [currentPage, setCurrentPage] = useState('home');
+  const [pageRefreshKey, setPageRefreshKey] = useState(0);
   const [adminSection, setAdminSection] = useState('dashboard');
   const [buyerSection, setBuyerSection] = useState<'dashboard' | 'messages'>('dashboard');
   const [showAccountPrompt, setShowAccountPrompt] = useState(false);
   const [buyerChatSellerId, setBuyerChatSellerId] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Payment States
@@ -67,46 +69,42 @@ const App: React.FC = () => {
     setFavoriteIds(prev => prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]);
   };
 
-  // 1. Initialize & Auth Listener
+  // 1. Initialize & Auth Listener — préchargement pendant le splash, puis signal au preloader
   useEffect(() => {
-    // Load Products
+    const stored = typeof window !== 'undefined' ? window.localStorage.getItem('cookies_consent') : null;
+    if (stored === 'accepted' || stored === 'refused') setCookieChoice(stored);
+
     const loadProducts = async () => {
       const dbProducts = await fetchProducts();
       if (dbProducts.length > 0) setProducts(dbProducts);
     };
-    loadProducts();
 
-    // Check Active Session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const init = async () => {
+      const [_, { data: { session } }] = await Promise.all([
+        loadProducts(),
+        supabase.auth.getSession(),
+      ]);
       setSession(session);
       if (session?.user) fetchUserData(session.user.id);
-    });
+      setIsLoading(false);
+      if (!stored) setShowWelcome(true);
+      if (typeof window !== 'undefined' && (window as unknown as { finishLoading?: () => void }).finishLoading) {
+        (window as unknown as { finishLoading: () => void }).finishLoading();
+      }
+    };
+    init();
 
-    // Listen for Auth Changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session?.user) {
         fetchUserData(session.user.id);
       } else {
         setUserProfile(null);
-        setRole('BUYER'); // Reset role on logout
+        setRole('BUYER');
       }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const stored = window.localStorage.getItem('cookies_consent');
-    if (stored === 'accepted' || stored === 'refused') {
-      setCookieChoice(stored);
-    }
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-      if (!stored) setShowWelcome(true);
-    }, 1500);
-    return () => clearTimeout(timer);
   }, []);
 
   const handleCookieChoice = (choice: 'accepted' | 'refused') => {
@@ -119,10 +117,13 @@ const App: React.FC = () => {
   };
 
   const fetchUserData = async (userId: string) => {
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    const sessionUser = currentSession?.user;
+
     let profile = await getUserProfile(userId);
-    if (!profile && session?.user) {
-      const fallbackName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || 'Utilisateur';
-      const fallbackEmail = session.user.email || '';
+    if (!profile && sessionUser) {
+      const fallbackName = sessionUser.user_metadata?.full_name || sessionUser.user_metadata?.name || 'Utilisateur';
+      const fallbackEmail = sessionUser.email || '';
       await supabase.from('profiles').insert([{
         id: userId,
         full_name: fallbackName,
@@ -135,9 +136,14 @@ const App: React.FC = () => {
       profile = await getUserProfile(userId);
     }
     if (profile) {
-      setUserProfile(profile);
+      const enriched = {
+        ...profile,
+        email: profile.email || sessionUser?.email || '',
+        name: profile.name || sessionUser?.user_metadata?.full_name || sessionUser?.user_metadata?.name || profile.name || 'Utilisateur',
+      };
+      setUserProfile(enriched);
       if (profile.role) setRole(profile.role);
-      if (profile.phone) setPaymentPhone(profile.phone); // Prefill phone
+      if (enriched.phone) setPaymentPhone(enriched.phone);
     }
   };
 
@@ -207,6 +213,12 @@ const App: React.FC = () => {
     if (typeof window !== 'undefined') window.scrollTo(0, 0);
   };
 
+  const handleNavToPage = (page: string) => {
+    if (page === currentPage) setPageRefreshKey((k) => k + 1);
+    setCurrentPage(page);
+    if (typeof window !== 'undefined') window.scrollTo(0, 0);
+  };
+
   const handleQuit = () => {
     try {
       const cap = (window as any).Capacitor;
@@ -239,7 +251,9 @@ const App: React.FC = () => {
 
   const handleAccessChange = (nextRole: UserRole) => {
     if (isAuthenticated && userProfile?.role) {
-      if (nextRole !== userProfile.role) {
+      const adminRoles = ['SUPER_ADMIN', 'ADMIN'];
+      const ok = nextRole === userProfile.role || (nextRole === 'SUPER_ADMIN' && adminRoles.includes(userProfile.role));
+      if (!ok) {
         showNotification("Accès refusé : ce compte n'a pas le rôle demandé.", 'error');
         return;
       }
@@ -279,6 +293,7 @@ const App: React.FC = () => {
   };
 
   const handleLoginSuccess = () => {
+    setShowAccountPrompt(false);
     if (authTarget === 'checkout') {
       setAuthTarget(null);
       setPaymentStep('SELECT');
@@ -498,7 +513,7 @@ const App: React.FC = () => {
           onNavigate={setAdminSection}
           onLogout={handleLogout}
         />
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden relative page-padding safe-area-top py-4 pl-[60px] md:p-8 lg:pl-8 space-y-4 min-w-0">
           <Dashboard
             products={products}
             role={effectiveRole}
@@ -514,103 +529,118 @@ const App: React.FC = () => {
   const footerPages: Record<string, { title: string; subtitle?: string; sections: { title: string; body: string }[] }> = {
     'footer-help-chat': {
       title: "Discuter avec nous",
-      subtitle: "Assistance rapide et personnalisée.",
+      subtitle: "Assistance rapide pour comprendre et utiliser Ivoire Destock.",
       sections: [
-        { title: "Canaux", body: "Contactez-nous via chat, email ou téléphone selon votre préférence." },
-        { title: "Horaires", body: "Support disponible 7j/7 de 8h à 20h." }
+        { title: "À propos du service", body: "Ivoire Destock est l’application qui met en relation acheteurs et vendeurs pour des produits en déstockage (invendus, dates courtes, emballages abîmés). Vous pouvez discuter avec nous pour toute question sur le fonctionnement de l’app, vos commandes ou votre compte." },
+        { title: "Canaux", body: "Contactez-nous via le chat in-app, par email ou par téléphone selon votre préférence. Notre équipe vous aide à passer commande, suivre une livraison ou comprendre les modes de paiement (Wallet, Wave, Orange Money, MTN MoMo)." },
+        { title: "Horaires", body: "Support disponible 7j/7 de 8h à 20h (heure d’Abidjan)." }
       ]
     },
     'footer-faq': {
       title: "Aide & FAQ",
-      subtitle: "Les réponses aux questions fréquentes.",
+      subtitle: "Tout pour bien utiliser Ivoire Destock.",
       sections: [
-        { title: "Commandes", body: "Suivi, modification, annulation et historique de commande." },
-        { title: "Paiements", body: "Wallet, Mobile Money et sécurité des transactions." }
+        { title: "Qu’est-ce qu’Ivoire Destock ?", body: "C’est une plateforme anti-gaspillage qui permet d’acheter des produits en déstockage à prix réduits (grandes marques, invendus, DLC courtes, etc.) et aux professionnels de vendre leurs surplus. Vous achetez en B2B ou pour votre commerce, et vous payez par Wallet ou Mobile Money." },
+        { title: "Commandes", body: "Vous pouvez suivre, modifier (avant validation) ou annuler une commande depuis votre espace client. L’historique de vos commandes et le statut (en attente, payée, livrée) sont visibles dans l’onglet Compte." },
+        { title: "Paiements", body: "Paiement sécurisé par Solde (Wallet) Ivoire Destock ou Mobile Money (Wave, Orange Money, MTN MoMo). Rechargez votre wallet depuis l’espace client pour payer en un clic. Les remboursements sont crédités selon la politique en vigueur." },
+        { title: "Compte et profil", body: "Depuis l’espace client vous gérez vos coordonnées, votre solde et votre photo de profil. Vous pouvez aussi accéder aux Devenir Vendeur ou Accès Grossiste si vous avez ouvert un compte pro." }
       ]
     },
     'footer-contact': {
       title: "Contactez-nous",
-      subtitle: "Nous sommes à votre écoute.",
+      subtitle: "Une question sur le service ? On vous répond.",
       sections: [
-        { title: "Email", body: "support@ivoiredestock.com" },
-        { title: "Téléphone", body: "+225 07 00 00 00 00" }
+        { title: "Email", body: "support@ivoiredestock.com — Pour toute demande sur l’app, vos commandes ou un problème technique." },
+        { title: "Téléphone", body: "+225 07 00 00 00 00 — Pour un échange rapide ou une aide à la première utilisation." },
+        { title: "Utilisation du service", body: "Nous vous aidons à comprendre comment commander, payer, suivre une livraison, vendre sur la plateforme ou devenir partenaire Accès Grossiste." }
       ]
     },
     'footer-report': {
       title: "Signaler un abus",
-      subtitle: "Sécurité et conformité.",
+      subtitle: "Sécurité et conformité sur Ivoire Destock.",
       sections: [
-        { title: "Signalement", body: "Décrivez l'abus, joignez des preuves et nous traiterons rapidement." }
+        { title: "Pourquoi signaler", body: "Pour garder la plateforme fiable : contenu trompeur, non-conformité des produits ou comportement abusif. Votre signalement est traité de façon confidentielle." },
+        { title: "Comment signaler", body: "Décrivez précisément l’abus (commande, vendeur, annonce…) et joignez des preuves (captures, références) si possible. Nous traiterons votre demande dans les meilleurs délais." }
       ]
     },
     'footer-about': {
-      title: "Qui sommes-nous",
-      subtitle: "La plateforme anti-gaspillage dédiée aux professionnels.",
+      title: "À propos de nous",
+      subtitle: "Ivoire Destock : la plateforme anti-gaspillage qui aide à comprendre et à utiliser le déstockage.",
       sections: [
-        { title: "Mission", body: "Réduire le gaspillage et aider les entreprises à valoriser leurs stocks." }
+        { title: "Notre mission", body: "Réduire le gaspillage alimentaire et non alimentaire en connectant vendeurs (grandes surfaces, industriels, détaillants) et acheteurs. Nous permettons de valoriser les invendus, dates courtes et emballages abîmés à prix cassés, tout en offrant un service clair et sécurisé." },
+        { title: "Le service", body: "Sur l’app vous pouvez : parcourir le catalogue par catégorie, filtrer par prix et localisation, payer par Wallet ou Mobile Money, suivre vos commandes et gérer votre espace client. Les vendeurs et centrales d’achat disposent d’un tableau de bord dédié (catalogue, commandes, livraisons, paramètres)." },
+        { title: "Pour qui", body: "Acheteurs (commerces, revendeurs, particuliers), vendeurs (déstockage de surplus) et centrales d’achat (gros volumes). Tout est pensé pour que vous compreniez facilement le service et que vos opérations (achats, ventes, CRUD produits, suivi) fonctionnent correctement." }
       ]
     },
     'footer-careers': {
       title: "Carrières",
-      subtitle: "Rejoignez l'équipe Ivoire Destock.",
+      subtitle: "Rejoignez l’équipe Ivoire Destock.",
       sections: [
-        { title: "Postes", body: "Envoyez votre CV à jobs@ivoiredestock.com." }
+        { title: "Postes", body: "Envoyez votre CV à jobs@ivoiredestock.com en précisant le poste visé. Nous recrutons des profils techniques, commerciaux et support pour faire grandir la plateforme et aider les utilisateurs à tirer le meilleur parti du service." }
       ]
     },
     'footer-terms': {
       title: "Conditions Générales",
-      subtitle: "Cadre d'utilisation de la plateforme.",
+      subtitle: "Cadre d’utilisation de la plateforme Ivoire Destock.",
       sections: [
-        { title: "Utilisation", body: "En utilisant la plateforme, vous acceptez les conditions en vigueur." }
+        { title: "Utilisation", body: "En utilisant Ivoire Destock, vous acceptez les conditions en vigueur : utilisation loyale du service, exactitude des informations (compte, commandes, annonces), respect des règles de vente et d’achat. Les comptes vendeur et centrale d’achat sont soumis à validation." },
+        { title: "Responsabilités", body: "La plateforme met en relation acheteurs et vendeurs ; elle s’efforce d’assurer la fiabilité des paiements et du suivi des commandes. Les litiges sont traités selon notre politique de retour et remboursement." }
       ]
     },
     'footer-cookies': {
       title: "Politique de Cookies",
-      subtitle: "Transparence sur les données.",
+      subtitle: "Transparence sur les données et le bon fonctionnement de l’app.",
       sections: [
-        { title: "Cookies", body: "Nous utilisons des cookies pour améliorer votre expérience." }
+        { title: "Cookies", body: "Nous utilisons des cookies essentiels pour le fonctionnement de l’application (connexion, panier, préférences) et des cookies d’analyse pour améliorer le service. Vous pouvez refuser les cookies non essentiels ; l’app reste utilisable." },
+        { title: "Données", body: "Vos données (profil, commandes, coordonnées) sont utilisées pour fournir le service, traiter les paiements et vous aider à comprendre et utiliser Ivoire Destock. Nous ne vendons pas vos données à des tiers." }
       ]
     },
     'footer-sell': {
       title: "Vendre sur Ivoire Destock",
-      subtitle: "Vendez vos invendus rapidement.",
+      subtitle: "Comprendre comment vendre vos invendus sur la plateforme.",
       sections: [
-        { title: "Onboarding", body: "Créez un compte vendeur et publiez vos stocks en quelques minutes." }
+        { title: "Principe", body: "En tant que vendeur vous publiez vos produits en déstockage (invendus, DLC courtes, emballages abîmés). Les acheteurs parcourent le catalogue, ajoutent au panier et paient par Wallet ou Mobile Money. Vous recevez les commandes et gérez les livraisons depuis votre tableau de bord." },
+        { title: "Onboarding", body: "Créez un compte vendeur via le menu (Devenir Vendeur), complétez votre profil et votre CNI si demandé. Ensuite vous pouvez ajouter des produits (nom, catégorie, prix, stock, photo), gérer le catalogue (CRUD), voir les commandes et les retraits (Wave, Orange Money, MTN)." }
       ]
     },
     'footer-logistics': {
-      title: "Devenir centrale d'achat",
+      title: "Accès Grossiste",
       subtitle: "Accès dédié aux grandes surfaces et centrales.",
       sections: [
-        { title: "Onboarding", body: "Contactez partnerships@ivoiredestock.com pour rejoindre le programme centrales d'achat." }
+        { title: "Rôle", body: "Les centrales d’achat achètent en gros auprès des vendeurs et peuvent importer des catalogues (Excel). Elles ont un tableau de bord dédié : catalogue, livraisons, paramètres, commission." },
+        { title: "Onboarding", body: "Contactez partnerships@ivoiredestock.com pour rejoindre le programme. Après validation vous accédez à l’espace Centrale d’achat depuis le menu et pouvez gérer vos produits et commandes comme un vendeur avancé." }
       ]
     },
     'footer-seller-space': {
-      title: "Espace vendeur",
-      subtitle: "Accès dédié aux vendeurs.",
+      title: "Devenir Vendeur",
+      subtitle: "Accéder à votre tableau de bord vendeur.",
       sections: [
-        { title: "Connexion", body: "Utilisez le menu Espace Hors Client pour accéder à votre tableau de bord vendeur." }
+        { title: "Connexion", body: "Utilisez le menu (burger ou « Devenir Vendeur ») pour vous connecter avec un compte vendeur. Vous accédez au tableau de bord : chiffre d’affaires, ventes, produits actifs, solde, retraits, catalogue (CRUD produits), commandes, livraisons, messages, paramètres et avatar." },
+        { title: "Fonctionnalités", body: "Gérez votre catalogue (création, modification, suppression de produits), consultez les commandes, suivez les livraisons, répondez aux messages B2B et modifiez votre profil (nom, téléphone, photo, localisation)." }
       ]
     },
     'footer-track': {
       title: "Suivre ma commande",
-      subtitle: "Suivi en temps réel.",
+      subtitle: "Comprendre le suivi de vos commandes sur Ivoire Destock.",
       sections: [
-        { title: "Statut", body: "Suivez vos commandes depuis votre tableau de bord client." }
+        { title: "Où suivre", body: "Dans l’espace client (onglet Compte), consultez la liste de vos commandes avec le statut : en attente, payée, en préparation, livrée. Cliquez sur une commande pour voir le détail et le montant payé." },
+        { title: "Statut", body: "Chaque commande affiche un numéro, la date, le mode de paiement (Wallet, Wave, etc.) et l’état. En cas de retard ou de problème, contactez le support ou le vendeur via les canaux indiqués." }
       ]
     },
     'footer-shipping': {
       title: "Modes de livraison",
-      subtitle: "Livraison adaptée à vos besoins.",
+      subtitle: "Comment sont livrées vos commandes Ivoire Destock.",
       sections: [
-        { title: "Options", body: "Livraison standard, express et points relais (selon disponibilité)." }
+        { title: "Options", body: "Livraison standard, express et points relais selon disponibilité et zone (Côte d’Ivoire en priorité). Les délais et coûts sont indiqués au moment de la commande ou par le vendeur." },
+        { title: "Suivi", body: "Une fois la commande expédiée, vous pouvez suivre le statut dans votre espace client. Les vendeurs et centrales gèrent les livraisons depuis leur tableau de bord." }
       ]
     },
     'footer-returns': {
       title: "Retour & Remboursement",
-      subtitle: "Politique claire et rapide.",
+      subtitle: "Politique claire pour comprendre vos droits.",
       sections: [
-        { title: "Remboursement", body: "Les remboursements sont traités selon l'état de la commande et la politique en vigueur." }
+        { title: "Remboursement", body: "Les remboursements sont traités selon l’état de la commande (non livrée, produit non conforme, etc.) et la politique en vigueur. Le montant peut être recrédité sur votre Wallet ou selon le mode de paiement initial." },
+        { title: "Retours", body: "En cas de litige (produit abîmé, erreur), contactez le support ou le vendeur. Nous vous aidons à comprendre les étapes et les délais de traitement." }
       ]
     }
   };
@@ -652,6 +682,7 @@ const App: React.FC = () => {
             isAuthenticated={isAuthenticated}
             onRequireAuth={requireAuthForMessaging}
             onStartChat={startBuyerChat}
+            onFiltersOpenChange={setFiltersOpen}
           />
         );
       case 'favoris':
@@ -675,6 +706,7 @@ const App: React.FC = () => {
             role="BUYER"
             userProfile={userProfile || undefined}
             onRecharge={handleRecharge}
+            onRefreshProfile={session?.user ? () => fetchUserData(session.user.id) : undefined}
             buyerSection={buyerSection}
             onBuyerSectionChange={setBuyerSection}
             initialChatSellerId={buyerChatSellerId}
@@ -849,6 +881,7 @@ const App: React.FC = () => {
         isCartOpen={isCartOpen}
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
+        onNavToPage={handleNavToPage}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onSearchSubmit={handleSearchSubmit}
@@ -861,13 +894,13 @@ const App: React.FC = () => {
         onQuit={openQuitModal}
       />
 
-      <main className="flex-1 pb-20 md:pb-0">
+      <main className="flex-1 pb-20 md:pb-0" key={`${currentPage}-${pageRefreshKey}`}>
         {renderBuyerPage()}
       </main>
 
       <Footer onNavigate={setCurrentPage} />
 
-      <AIChat productContext={products} />
+      <AIChat productContext={products} hideFAB={filtersOpen} />
 
       {/* TOAST NOTIFICATION */}
       {notification && (
@@ -892,7 +925,7 @@ const App: React.FC = () => {
             <div className="w-full max-w-md bg-white shadow-2xl flex flex-col h-[85dvh] md:h-full max-h-[85dvh] md:max-h-none animate-slide-in-right rounded-t-2xl md:rounded-none">
               <div
                 className="px-4 md:px-6 py-4 md:py-6 bg-[#064e3b] text-white flex justify-between items-center shadow-md sticky top-0 z-10"
-                style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
+                style={{ paddingTop: 'max(36px, calc(env(safe-area-inset-top) + 12px))' }}
               >
                 <button onClick={goHome} className="flex items-center gap-2 hover:opacity-90" aria-label="Retour à l'accueil">
                   <ArrowLeft size={22} />
@@ -1019,9 +1052,11 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="mb-6 bg-blue-50 border border-blue-100 p-4 rounded-lg flex items-center gap-3">
-                  <div className="bg-blue-500 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg">
-                    {selectedPaymentProvider === 'WAVE' ? 'W' : selectedPaymentProvider === 'OM' ? 'O' : 'M'}
-                  </div>
+                  <img
+                    src={selectedPaymentProvider === 'WAVE' ? '/img/wave.png' : selectedPaymentProvider === 'OM' ? '/img/om.png' : '/img/mtn.jpg'}
+                    alt={selectedPaymentProvider || ''}
+                    className="w-10 h-10 rounded-full object-contain bg-white p-1 shadow-sm"
+                  />
                   <div>
                     <p className="text-xs font-bold text-blue-800 uppercase">Montant à payer</p>
                     <p className="text-xl font-black text-[#0f172a]">{cartTotal.toLocaleString()} FCFA</p>
@@ -1095,12 +1130,10 @@ const App: React.FC = () => {
                 onClick={() => selectMobileMoney('WAVE')} 
                 className="w-full flex items-center justify-between p-3 border border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all rounded shadow-sm hover:shadow-md group"
               >
-                <span className="font-bold text-[#0f172a] text-sm">Wave</span>
-                <img 
-                  src="/img/wave.png" 
-                  alt="Wave" 
-                  className="w-10 h-10 object-contain group-hover:scale-110 transition-transform" 
-                />
+                <div className="flex items-center gap-3">
+                  <img src="/img/wave.png" alt="" className="w-10 h-10 object-contain group-hover:scale-110 transition-transform" />
+                  <span className="font-bold text-[#0f172a] text-sm">Wave</span>
+                </div>
               </button>
 
               {/* ORANGE MONEY */}
@@ -1108,12 +1141,10 @@ const App: React.FC = () => {
                 onClick={() => selectMobileMoney('OM')} 
                 className="w-full flex items-center justify-between p-3 border border-gray-200 hover:border-orange-500 hover:bg-orange-50 transition-all rounded shadow-sm hover:shadow-md group"
               >
-                <span className="font-bold text-[#0f172a] text-sm">Orange Money</span>
-                <img 
-                  src="/img/om.png" 
-                  alt="Orange Money" 
-                  className="w-10 h-10 object-contain group-hover:scale-110 transition-transform" 
-                />
+                <div className="flex items-center gap-3">
+                  <img src="/img/om.png" alt="" className="w-10 h-10 object-contain group-hover:scale-110 transition-transform" />
+                  <span className="font-bold text-[#0f172a] text-sm">Orange Money</span>
+                </div>
               </button>
 
               {/* MTN MOMO */}
@@ -1121,12 +1152,10 @@ const App: React.FC = () => {
                 onClick={() => selectMobileMoney('MTN')} 
                 className="w-full flex items-center justify-between p-3 border border-gray-200 hover:border-yellow-500 hover:bg-yellow-50 transition-all rounded shadow-sm hover:shadow-md group"
               >
-                <span className="font-bold text-[#0f172a] text-sm">MTN MoMo</span>
-                <img 
-                  src="/img/mtn.jpg" 
-                  alt="MTN" 
-                  className="w-10 h-10 object-contain group-hover:scale-110 transition-transform" 
-                />
+                <div className="flex items-center gap-3">
+                  <img src="/img/mtn.jpg" alt="" className="w-10 h-10 object-contain group-hover:scale-110 transition-transform" />
+                  <span className="font-bold text-[#0f172a] text-sm">MTN MoMo</span>
+                </div>
               </button>
                 </div>
               </>

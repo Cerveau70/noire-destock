@@ -9,6 +9,7 @@ interface NavbarProps {
   toggleCart: () => void;
   currentPage: string;
   setCurrentPage: (page: string) => void;
+  onNavToPage?: (page: string) => void;
   searchQuery: string;
   setSearchQuery: (value: string) => void;
   onSearchSubmit: () => void;
@@ -51,9 +52,10 @@ const Navbar: React.FC<NavbarProps> = (props) => {
 
   const getRoleLabel = (r: UserRole) => {
     switch (r) {
-      case 'SUPER_ADMIN': return 'Admin';
+      case 'SUPER_ADMIN': return 'Super Admin';
+      case 'ADMIN': return 'Admin';
       case 'STORE_ADMIN': return 'Vendeur';
-      case 'PARTNER_ADMIN': return "Centrale d'achat";
+      case 'PARTNER_ADMIN': return "Accès Grossiste";
       default: return 'Client';
     }
   };
@@ -61,11 +63,8 @@ const Navbar: React.FC<NavbarProps> = (props) => {
   return (
     <nav className="w-full sticky top-0 z-[100] font-sans flex flex-col">
       
-      {/* --- 1. HEADER PRINCIPAL (safe-area pour ne pas passer sous la barre de statut) --- */}
-      <div
-        className="bg-[#064e3b] text-white px-3 py-2 shadow-md"
-        style={{ paddingTop: 'max(env(safe-area-inset-top), 24px)' }}
-      >
+      {/* --- 1. HEADER PRINCIPAL (safe-area: logo et menu ne touchent jamais la barre de statut) --- */}
+      <div className="bg-[#064e3b] text-white px-3 py-2 shadow-md safe-area-top">
         <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4">
           
           {/* LOGO */}
@@ -113,10 +112,10 @@ const Navbar: React.FC<NavbarProps> = (props) => {
                     <Users size={18} className="text-emerald-600"/> Espace Client
                   </button>
                   <button onClick={() => {props.onAccessChange('STORE_ADMIN'); setIsAccessOpen(false);}} className="flex items-center gap-3 w-full px-4 py-3 text-sm font-bold hover:bg-emerald-50 text-slate-700 transition-colors">
-                    <Store size={18} className="text-emerald-600"/> Espace Vendeur
+                    <Store size={18} className="text-emerald-600"/> Devenir Vendeur
                   </button>
                   <button onClick={() => {props.onAccessChange('PARTNER_ADMIN'); setIsAccessOpen(false);}} className="flex items-center gap-3 w-full px-4 py-3 text-sm font-bold hover:bg-emerald-50 text-slate-700 transition-colors">
-                    <Users size={18} className="text-emerald-600"/> Centrale d'achat
+                    <Users size={18} className="text-emerald-600"/> Accès Grossiste
                   </button>
                   <button onClick={() => {props.onAccessChange('SUPER_ADMIN'); setIsAccessOpen(false);}} className="flex items-center gap-3 w-full px-4 py-3 text-sm font-bold hover:bg-emerald-50 text-slate-700 transition-colors">
                     <ShieldCheck size={18} className="text-emerald-600"/> Administration
@@ -125,17 +124,7 @@ const Navbar: React.FC<NavbarProps> = (props) => {
               )}
             </div>
 
-            {/* Panier */}
-            <div className="relative cursor-pointer p-1 group" onClick={props.toggleCart}>
-              <ShoppingCart size={26} className="transition-transform group-hover:scale-110" />
-              {props.cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full ring-2 ring-[#064e3b]">
-                  {props.cartCount}
-                </span>
-              )}
-            </div>
-
-            {/* --- MODIFICATION ICI : ACCOUNT DESKTOP (Connexion -> Connecté) --- */}
+            {/* --- ACCOUNT DESKTOP (Connexion -> Connecté) ; panier uniquement en navbar inf --- */}
             <div 
               className="hidden md:flex items-center gap-2 text-sm font-bold border-l border-white/20 pl-6 cursor-pointer hover:text-emerald-300 transition-colors"
               onClick={() => props.isAuthenticated ? props.onAccount() : props.setCurrentPage('login')}
@@ -188,10 +177,10 @@ const Navbar: React.FC<NavbarProps> = (props) => {
       {isMenuOpen && (
         <div className="fixed inset-0 top-[60px] bg-black/20 backdrop-blur-[2px] z-[1000] md:hidden flex flex-col animate-in fade-in duration-200">
           <div className="flex-1 overflow-y-auto p-3 pb-24">
-            <div className="ml-auto w-full max-w-sm bg-white border border-gray-200 shadow-2xl rounded-2xl p-3 flex flex-col gap-4">
+            <div className="ml-auto w-full max-w-sm bg-white shadow-2xl rounded-2xl overflow-hidden flex flex-col">
             
             {/* Recherche Mobile */}
-            <div className="flex rounded-xl overflow-hidden border border-gray-200 shadow-inner bg-white focus-within:border-emerald-400 transition-all">
+            <div className="p-3 flex rounded-xl overflow-hidden bg-gray-50/80 focus-within:ring-2 focus-within:ring-emerald-400/30 transition-all">
               <input 
                 type="text" placeholder="Rechercher..." 
                 className="flex-1 bg-transparent px-3 py-2 text-gray-700 outline-none placeholder-gray-400 text-[10px]" 
@@ -199,90 +188,92 @@ const Navbar: React.FC<NavbarProps> = (props) => {
                 onChange={(e) => props.setSearchQuery(e.target.value)} 
                 onKeyDown={(e) => e.key === 'Enter' && props.onSearchSubmit()}
               />
-              <button onClick={() => {props.onSearchSubmit(); setIsMenuOpen(false);}} className="bg-white px-3 text-[#064e3b] active:bg-emerald-50"><Search size={16}/></button>
+              <button onClick={() => {props.onSearchSubmit(); setIsMenuOpen(false);}} className="px-3 text-[#064e3b] active:opacity-80"><Search size={18}/></button>
             </div>
 
-            {/* ESPACES PRO (Mobile Burger) */}
-            <div className="space-y-2">
-              <p className="text-[8px] font-black text-emerald-400/50 uppercase tracking-[0.12em] ml-1">Espaces Professionnels</p>
-              <div className="grid grid-cols-1 gap-1">
-                <button onClick={() => { props.onAccessChange('STORE_ADMIN'); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }} className={`flex items-center gap-2.5 w-full p-2 rounded-lg border transition-all hover:border-emerald-300 hover:text-[#064e3b] ${props.role === 'STORE_ADMIN' ? 'bg-emerald-50 border-emerald-300 text-[#064e3b]' : 'bg-white border-gray-200 text-gray-600'}`}>
-                   <Store size={16}/> <span className="text-[10px] font-bold">Espace Vendeur</span>
-                </button>
-                <button onClick={() => { props.onAccessChange('PARTNER_ADMIN'); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }} className={`flex items-center gap-2.5 w-full p-2 rounded-lg border transition-all hover:border-emerald-300 hover:text-[#064e3b] ${props.role === 'PARTNER_ADMIN' ? 'bg-emerald-50 border-emerald-300 text-[#064e3b]' : 'bg-white border-gray-200 text-gray-600'}`}>
-                   <Users size={16}/> <span className="text-[10px] font-bold">Centrale d'achat</span>
-                </button>
-                <button onClick={() => { props.onAccessChange('SUPER_ADMIN'); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }} className={`flex items-center gap-2.5 w-full p-2 rounded-lg border transition-all hover:border-emerald-300 hover:text-[#064e3b] ${props.role === 'SUPER_ADMIN' ? 'bg-emerald-50 border-emerald-300 text-[#064e3b]' : 'bg-white border-gray-200 text-gray-600'}`}>
-                   <ShieldCheck size={16}/> <span className="text-[10px] font-bold">Espace Administrateur</span>
-                </button>
-              </div>
-            </div>
+            <div className="border-t border-gray-100" />
 
-            {/* MON COMPTE (Mobile Burger) */}
-            <div className="space-y-2">
-              <p className="text-[8px] font-black text-emerald-400/50 uppercase tracking-[0.12em] ml-1">Mon compte</p>
-              <button
-                onClick={() => { props.onAccount(); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }}
-                className="w-full flex items-center justify-between bg-white border border-gray-200 p-2 rounded-lg text-[9px] font-bold uppercase text-gray-600 hover:border-emerald-300 hover:text-[#064e3b]"
-              >
-                <span>Accéder à mon espace</span>
-                <UserCircle size={14} className="text-[#064e3b]" />
+            {/* ESPACES PRO (Mobile Burger) - listes simples icône à gauche */}
+            <div className="px-2 py-2">
+              <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider px-2 py-1">Espaces Professionnels</p>
+              <button onClick={() => { props.onAccessChange('STORE_ADMIN'); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }} className={`flex items-center gap-3 w-full py-2.5 px-2 rounded-lg text-left transition-colors ${props.role === 'STORE_ADMIN' ? 'bg-emerald-50 text-[#064e3b]' : 'text-gray-700 hover:bg-gray-50'}`}>
+                <Store size={18} className="shrink-0 text-[#064e3b]" />
+                <span className="text-[11px] font-semibold">Devenir Vendeur</span>
+              </button>
+              <button onClick={() => { props.onAccessChange('PARTNER_ADMIN'); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }} className={`flex items-center gap-3 w-full py-2.5 px-2 rounded-lg text-left transition-colors ${props.role === 'PARTNER_ADMIN' ? 'bg-emerald-50 text-[#064e3b]' : 'text-gray-700 hover:bg-gray-50'}`}>
+                <Users size={18} className="shrink-0 text-[#064e3b]" />
+                <span className="text-[11px] font-semibold">Accès Grossiste</span>
+              </button>
+              <button onClick={() => { props.onAccessChange('SUPER_ADMIN'); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }} className={`flex items-center gap-3 w-full py-2.5 px-2 rounded-lg text-left transition-colors ${props.role === 'SUPER_ADMIN' ? 'bg-emerald-50 text-[#064e3b]' : 'text-gray-700 hover:bg-gray-50'}`}>
+                <ShieldCheck size={18} className="shrink-0 text-[#064e3b]" />
+                <span className="text-[11px] font-semibold">Support & Gestion</span>
               </button>
             </div>
 
-            {/* PRODUITS (Mobile Burger) */}
-            <div className="space-y-2">
-              <p className="text-[8px] font-black text-emerald-400/50 uppercase tracking-[0.12em] ml-1">Produits</p>
-              <button
-                onClick={() => { props.setCurrentPage('marketplace'); setIsMenuOpen(false); }}
-                className="w-full flex items-center justify-between bg-white border border-gray-200 p-2 rounded-lg text-[9px] font-bold uppercase text-gray-600 hover:border-emerald-300 hover:text-[#064e3b]"
-              >
-                <span>Voir tous les produits</span>
-                <Search size={14} className="text-[#064e3b]" />
+            <div className="border-t border-gray-100" />
+
+            {/* MON COMPTE */}
+            <div className="px-2 py-2">
+              <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider px-2 py-1">Mon compte</p>
+              <button onClick={() => { props.onAccount(); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }} className="flex items-center gap-3 w-full py-2.5 px-2 rounded-lg text-left text-gray-700 hover:bg-gray-50 transition-colors">
+                <UserCircle size={18} className="shrink-0 text-[#064e3b]" />
+                <span className="text-[11px] font-semibold">Accéder à mon espace</span>
               </button>
             </div>
 
-            {/* QUITTER (Mobile Burger) */}
-            {props.onQuit && (
-              <div className="pt-2 border-t border-gray-100">
-                <button
-                  onClick={() => { props.onQuit?.(); setIsMenuOpen(false); }}
-                  className="w-full flex items-center justify-center gap-2 text-gray-500 font-bold uppercase text-[9px] p-2 bg-gray-100 rounded-lg border border-gray-200 hover:bg-gray-200 active:bg-gray-300"
-                >
-                  <Power size={14} /> Quitter l'app
-                </button>
-              </div>
-            )}
+            <div className="border-t border-gray-100" />
 
-            {/* AUTH & LOGOUT (Mobile Burger) */}
-            <div className="mt-auto pt-3 border-t border-gray-100">
+            {/* PRODUITS */}
+            <div className="px-2 py-2">
+              <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider px-2 py-1">Produits</p>
+              <button onClick={() => { props.setCurrentPage('marketplace'); setIsMenuOpen(false); }} className="flex items-center gap-3 w-full py-2.5 px-2 rounded-lg text-left text-gray-700 hover:bg-gray-50 transition-colors">
+                <Search size={18} className="shrink-0 text-[#064e3b]" />
+                <span className="text-[11px] font-semibold">Voir tous les produits</span>
+              </button>
+            </div>
+
+            <div className="border-t border-gray-100" />
+
+            {/* AUTH & LOGOUT (au-dessus de Quitter) */}
+            <div className="mt-auto px-2 py-3">
               {props.isAuthenticated ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 px-3 py-2 bg-emerald-50 rounded-lg mb-2 border border-emerald-100">
-                    <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-[10px]">
+                <div className="space-y-0">
+                  <div className="flex items-center gap-3 px-2 py-2 rounded-lg mb-1 bg-gray-50/80">
+                    <div className="w-8 h-8 rounded-full bg-[#064e3b] flex items-center justify-center text-white font-bold text-[11px]">
                       {props.userName?.charAt(0) || 'U'}
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-[9px] text-emerald-300 font-bold uppercase">Connecté en tant que</span>
-                      <span className="text-[10px] font-black">{props.userName}</span>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[9px] text-gray-400 font-semibold uppercase">Connecté</span>
+                      <span className="text-[11px] font-bold text-gray-800 truncate">{props.userName}</span>
                     </div>
                   </div>
-                  <button onClick={props.onLogout} className="flex items-center justify-center gap-2 text-red-500 font-bold uppercase text-[9px] p-2 bg-red-50 rounded-lg w-full border border-red-100 active:bg-red-100 transition-all hover:bg-red-100">
-                    <LogOut size={14}/> Déconnexion
+                  <button onClick={props.onLogout} className="flex items-center gap-3 w-full py-2.5 px-2 rounded-lg text-left text-red-600 hover:bg-red-50/80 transition-colors">
+                    <LogOut size={18} className="shrink-0" />
+                    <span className="text-[11px] font-semibold">Déconnexion</span>
                   </button>
-                <button
-                  onClick={() => { props.onHome(); setIsMenuOpen(false); }}
-                    className="flex items-center justify-center gap-2 text-gray-600 font-bold uppercase text-[9px] p-2 bg-gray-50 rounded-lg w-full border border-gray-200 active:bg-gray-100 transition-all"
-                >
-                    Retour accueil
-                </button>
+                  <button onClick={() => { props.onHome(); setIsMenuOpen(false); }} className="flex items-center gap-3 w-full py-2.5 px-2 rounded-lg text-left text-gray-700 hover:bg-gray-50 transition-colors">
+                    <Home size={18} className="shrink-0 text-gray-500" />
+                    <span className="text-[11px] font-semibold">Retour accueil</span>
+                  </button>
                 </div>
               ) : (
-                <button onClick={() => { props.setCurrentPage('login'); setIsMenuOpen(false); }} className="flex items-center gap-3 text-emerald-600 font-bold uppercase text-[9px] p-2 bg-emerald-50 rounded-lg w-full border border-emerald-100 active:bg-emerald-100 transition-all hover:bg-emerald-100">
-                  <User size={14}/> Se connecter / S'inscrire
+                <button onClick={() => { props.setCurrentPage('login'); setIsMenuOpen(false); }} className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#064e3b] text-white font-bold uppercase text-[11px] hover:opacity-95 active:opacity-90 transition-opacity">
+                  <User size={18} /> SE CONNECTER
                 </button>
               )}
             </div>
+
+            {/* QUITTER tout en bas, petit texte discret */}
+            {props.onQuit && (
+              <div className="border-t border-gray-100 px-2 py-3 flex justify-center">
+                <button
+                  onClick={() => { props.onQuit?.(); setIsMenuOpen(false); }}
+                  className="flex items-center gap-1.5 text-[10px] text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  <Power size={12} /> Quitter l'app
+                </button>
+              </div>
+            )}
             </div>
           </div>
         </div>
@@ -290,48 +281,48 @@ const Navbar: React.FC<NavbarProps> = (props) => {
 
       {/* --- 4. NAVBAR INFÉRIEURE (Mobile) - 5 onglets comme capture 3 --- */}
       <div
-        className="md:hidden fixed bottom-0 left-0 right-0 z-[1200] border-t border-gray-200 bg-white/90 backdrop-blur-md"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        className="md:hidden fixed bottom-0 left-0 right-0 z-[1200] border-t border-gray-200 bg-white/90 backdrop-blur-md mobile-bottom-nav"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)', minHeight: 56 }}
       >
-        <div className="grid grid-cols-5 font-black uppercase tracking-wide mobile-bottom-nav text-[10px]">
+        <div className="grid grid-cols-5 font-bold uppercase tracking-wide text-[10px] h-14">
           <button
-            onClick={() => { props.onHome(); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }}
-            className={`py-2.5 flex flex-col items-center gap-0.5 hover:text-[#064e3b] active:scale-95 transition-transform ${props.currentPage === 'home' ? 'text-[#064e3b]' : 'text-gray-600'}`}
+            onClick={() => { (props.onNavToPage || props.setCurrentPage)('home'); props.onHome(); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }}
+            className={`flex flex-col items-center justify-center gap-0.5 hover:text-[#064e3b] active:scale-95 transition-transform ${props.currentPage === 'home' ? 'text-[#064e3b]' : 'text-gray-600'}`}
           >
-            <Home size={20} />
+            <Home size={24} />
             <span>Accueil</span>
           </button>
           <button
-            onClick={() => { props.setCurrentPage('marketplace'); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }}
+            onClick={() => { (props.onNavToPage || props.setCurrentPage)('marketplace'); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }}
             className={`py-2.5 flex flex-col items-center gap-0.5 hover:text-[#064e3b] active:scale-95 transition-transform ${props.currentPage === 'marketplace' ? 'text-[#064e3b]' : 'text-gray-600'}`}
           >
-            <LayoutGrid size={20} />
+            <LayoutGrid size={24} />
             <span>Catégories</span>
           </button>
           <button
             onClick={() => { props.toggleCart(); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }}
-            className={`py-2.5 flex flex-col items-center gap-0.5 hover:text-[#064e3b] relative active:scale-95 transition-transform ${props.isCartOpen ? 'text-[#064e3b]' : 'text-gray-600'}`}
+            className={`flex flex-col items-center justify-center gap-0.5 hover:text-[#064e3b] relative active:scale-95 transition-transform ${props.isCartOpen ? 'text-[#064e3b]' : 'text-gray-600'}`}
           >
             {props.cartCount > 0 && (
-              <span className="absolute -top-0.5 right-3 bg-red-500 text-white text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full ring-2 ring-white">
+              <span className="absolute top-0 right-1/4 bg-red-500 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full ring-2 ring-white">
                 {props.cartCount}
               </span>
             )}
-            <ShoppingCart size={20} />
+            <ShoppingCart size={24} />
             <span>Panier</span>
           </button>
           <button
-            onClick={() => { props.setCurrentPage('favoris'); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }}
-            className={`py-2.5 flex flex-col items-center gap-0.5 hover:text-[#064e3b] active:scale-95 transition-transform ${props.currentPage === 'favoris' ? 'text-[#064e3b]' : 'text-gray-600'}`}
+            onClick={() => { (props.onNavToPage || props.setCurrentPage)('favoris'); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }}
+            className={`flex flex-col items-center justify-center gap-0.5 hover:text-[#064e3b] active:scale-95 transition-transform ${props.currentPage === 'favoris' ? 'text-[#064e3b]' : 'text-gray-600'}`}
           >
-            <Heart size={20} />
+            <Heart size={24} />
             <span>Favoris</span>
           </button>
           <button
-            onClick={() => { props.onAccount(); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }}
-            className={`py-2.5 flex flex-col items-center gap-0.5 hover:text-[#064e3b] active:scale-95 transition-transform ${props.currentPage === 'dashboard' ? 'text-[#064e3b]' : 'text-gray-600'}`}
+            onClick={() => { (props.onNavToPage || props.setCurrentPage)('dashboard'); props.onAccount(); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }}
+            className={`flex flex-col items-center justify-center gap-0.5 hover:text-[#064e3b] active:scale-95 transition-transform ${props.currentPage === 'dashboard' ? 'text-[#064e3b]' : 'text-gray-600'}`}
           >
-            <UserCircle size={20} />
+            <UserCircle size={24} />
             <span>Compte</span>
           </button>
         </div>
@@ -346,9 +337,9 @@ const Navbar: React.FC<NavbarProps> = (props) => {
           </div>
           <div className="p-4 space-y-3">
             <button onClick={() => {props.onAccessChange('BUYER'); setIsMobileSpaceOpen(false);}} className="w-full px-4 py-4 text-left text-sm font-bold rounded-xl border border-gray-200 bg-white">Espace Client</button>
-            <button onClick={() => {props.onAccessChange('STORE_ADMIN'); setIsMobileSpaceOpen(false);}} className="w-full px-4 py-4 text-left text-sm font-bold rounded-xl border border-gray-200 bg-white">Espace Vendeur</button>
-            <button onClick={() => {props.onAccessChange('PARTNER_ADMIN'); setIsMobileSpaceOpen(false);}} className="w-full px-4 py-4 text-left text-sm font-bold rounded-xl border border-gray-200 bg-white">Centrale d'achat</button>
-            <button onClick={() => {props.onAccessChange('SUPER_ADMIN'); setIsMobileSpaceOpen(false);}} className="w-full px-4 py-4 text-left text-sm font-bold rounded-xl border border-gray-200 bg-white">Espace Administrateur</button>
+            <button onClick={() => {props.onAccessChange('STORE_ADMIN'); setIsMobileSpaceOpen(false);}} className="w-full px-4 py-4 text-left text-sm font-bold rounded-xl border border-gray-200 bg-white">Devenir Vendeur</button>
+            <button onClick={() => {props.onAccessChange('PARTNER_ADMIN'); setIsMobileSpaceOpen(false);}} className="w-full px-4 py-4 text-left text-sm font-bold rounded-xl border border-gray-200 bg-white">Accès Grossiste</button>
+            <button onClick={() => {props.onAccessChange('SUPER_ADMIN'); setIsMobileSpaceOpen(false);}} className="w-full px-4 py-4 text-left text-sm font-bold rounded-xl border border-gray-200 bg-white">Support & Gestion</button>
           </div>
         </div>
       )}
