@@ -988,7 +988,7 @@ const App: React.FC = () => {
             <div className="w-full h-full max-w-[100vw] md:max-w-md bg-white shadow-2xl flex flex-col animate-slide-in-right rounded-none cart-panel-mobile-max-h">
               {/* Padding-top safe area + header (même style que Navbar) */}
               <div className="shrink-0" style={{ paddingTop: 'var(--safe-top)' }}>
-                <div className="bg-[#064e3b] text-white px-4 py-2 shadow-md w-full box-border" style={{ paddingLeft: 16, paddingRight: 16 }}>
+                <div className="bg-[#064e3b] text-white px-4 py-2 shadow-md w-full box-border" style={{ paddingTop: 30, paddingLeft: 16, paddingRight: 16 }}>
                   <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={goHome}>
                       <img src="/img/dest.png" alt="Logo" className="w-8 h-8 bg-white rounded-lg p-1 object-contain" />

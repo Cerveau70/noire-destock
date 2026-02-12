@@ -727,14 +727,14 @@ const ProductsManagerView = ({ userProfile }: { userProfile: UserProfile }) => {
   }
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-white p-6 rounded-none shadow-sm border border-gray-200">
-        <div><h1 className="text-2xl font-black text-[#0f172a] uppercase tracking-tight">Catalogue Produits</h1><p className="text-gray-500 text-sm">Gérez votre stock d'invendus et de surplus.</p></div>
-        <button onClick={() => { setEditingId(null); setFormData({ name: '', category: 'Alimentaire', price: 0, originalPrice: 0, stock: 0, status: 'INVENDU', expiryDate: '', description: '', image: '', location: userProfile.location || 'Abidjan' }); setCategoryValue('Alimentaire'); setCustomCategory(''); setImageFile(null); setImagePreview(null); setViewMode('FORM'); }} className="bg-[#00A859] text-white px-6 py-3 rounded-none font-bold uppercase text-xs flex items-center gap-2 hover:bg-[#008F4A] shadow-lg transition-all active:scale-95"><PlusCircle size={16} /> Ajouter un Produit</button>
+      <div className="flex justify-between items-center" style={{ paddingTop: 30, paddingLeft: 30 }}>
+        <div><h1 className="text-[15px] font-black text-[#0f172a] uppercase tracking-tight">Catalogue Produits</h1></div>
+        <button onClick={() => { setEditingId(null); setFormData({ name: '', category: 'Alimentaire', price: 0, originalPrice: 0, stock: 0, status: 'INVENDU', expiryDate: '', description: '', image: '', location: userProfile.location || 'Abidjan' }); setCategoryValue('Alimentaire'); setCustomCategory(''); setImageFile(null); setImagePreview(null); setViewMode('FORM'); }} className="bg-[#00A859] text-white px-6 py-3 rounded-none font-bold uppercase text-xs flex items-center gap-2 hover:bg-[#008F4A] shadow-lg transition-all active:scale-95"><PlusCircle size={16} /> Produit</button>
       </div>
       {notification && <div className={`p-4 rounded-none border-l-4 shadow-sm ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-500 text-emerald-800' : 'bg-red-50 border-red-500 text-red-800'}`}><span className="font-bold text-sm">{notification.msg}</span></div>}
       {userProfile.role === 'PARTNER_ADMIN' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-none shadow-sm border border-gray-200">
+          <div>
             <h3 className="text-sm font-black uppercase text-[#0f172a] mb-4">Import massif (Excel)</h3>
             <div className="space-y-3">
               <input
@@ -755,7 +755,7 @@ const ProductsManagerView = ({ userProfile }: { userProfile: UserProfile }) => {
               </p>
             </div>
           </div>
-          <div className="bg-white p-6 rounded-none shadow-sm border border-gray-200">
+          <div>
             <h3 className="text-sm font-black uppercase text-[#0f172a] mb-4">Règle de déstockage</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -828,7 +828,7 @@ const ProductsManagerView = ({ userProfile }: { userProfile: UserProfile }) => {
 
 const AllProductsView = ({ products, readOnly }: { products: Product[]; readOnly?: boolean }) => {
   return (
-    <div className="space-y-4 page-padding py-4 md:py-0">
+    <div className="space-y-4 page-padding py-4 md:py-0" style={{paddingTop: 30, paddingLeft:30}}>
       <div className="flex justify-between items-center bg-white p-4 rounded-lg border border-gray-200" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <div>
           <h1 className="mobile-h1 text-[18px] md:text-xl font-bold text-[#0f172a] uppercase tracking-tight">Tous les Produits</h1>
@@ -842,7 +842,7 @@ const AllProductsView = ({ products, readOnly }: { products: Product[]; readOnly
             <p className="text-[11px] font-medium uppercase">Aucun produit disponible</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" >
             <table className="w-full min-w-[720px] text-left border-collapse text-xs md:text-sm">
               <thead className="bg-[#F1F1F1] text-[11px] font-medium uppercase text-[#666] border-b border-[#EEEEEE]">
                 <tr>
@@ -1098,13 +1098,13 @@ const B2BMessagesView = ({
 
   return (
     <div className="space-y-6 animate-fade-in p-4 md:p-4 md:p-8">
-      <div className="flex justify-between items-center bg-white p-6 rounded-none shadow-sm border border-gray-200">
+      <div className="flex justify-between items-center" style={{ paddingTop: 30, paddingLeft: 16 }}>
         <div>
-          <h1 className="text-2xl font-black text-[#0f172a] uppercase tracking-tight">Messagerie B2B</h1>
-          <p className="text-gray-500 text-sm">Discussions avec les acheteurs professionnels et grossistes.</p>
+          <h1 className="text-[15px] font-black text-[#0f172a] uppercase tracking-tight">Messagerie</h1>
+          
         </div>
         <div className="bg-emerald-100 text-emerald-800 px-4 py-2 rounded-none text-xs font-black uppercase">
-          {threads.filter(m => m.status === 'UNREAD').length} nouveaux messages
+          {threads.filter(m => m.status === 'UNREAD').length} new messages
         </div>
       </div>
 
@@ -1237,33 +1237,35 @@ const DeliveryTrackingView = ({ sellerId, actorId }: { sellerId?: string; actorI
 
   return (
     <div className="space-y-6 animate-fade-in p-4 md:p-4 md:p-8">
-      <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+      <div className="flex justify-between items-center" style={{ paddingTop: 30, paddingLeft: 16 }}>
         <div>
-          <h1 className="text-2xl font-black text-[#0f172a] uppercase tracking-tight">Suivi Logistique</h1>
-          <p className="text-gray-500 text-sm">Contrôle de la flotte et des expéditions en temps réel.</p>
+          <h1 className="text-[15px] font-black text-[#0f172a] uppercase tracking-tight">Suivi Logistique</h1>
+          
         </div>
         <button className="bg-[#00A859] text-white px-6 py-3 rounded-none font-black uppercase text-xs flex items-center gap-2 hover:bg-[#008F4A] shadow-lg transition-all">
-          <MapPin size={16} /> Vue Carte Temps Réel
+          <MapPin size={16} />Carte 
         </button>
       </div>
 
-      <div className="bg-white p-4 rounded-none border border-gray-200 shadow-sm flex flex-wrap gap-4 items-end">
-        <div>
-          <label className="block text-xs font-black uppercase text-gray-400 mb-1">Statut</label>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold uppercase">
-            <option value="ALL">Tous</option>
-            <option value="PENDING">Préparation</option>
-            <option value="EN_ROUTE">En route</option>
-            <option value="DELIVERED">Livré</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-black uppercase text-gray-400 mb-1">Du</label>
-          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold" />
-        </div>
-        <div>
-          <label className="block text-xs font-black uppercase text-gray-400 mb-1">Au</label>
-          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold" />
+      <div className="bg-white p-4 rounded-none border border-gray-200 shadow-sm overflow-x-auto">
+        <div className="flex flex-nowrap gap-4 items-end min-w-max">
+          <div className="shrink-0">
+            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Statut</label>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold uppercase">
+              <option value="ALL">Tous</option>
+              <option value="PENDING">Préparation</option>
+              <option value="EN_ROUTE">En route</option>
+              <option value="DELIVERED">Livré</option>
+            </select>
+          </div>
+          <div className="shrink-0">
+            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Du</label>
+            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold" />
+          </div>
+          <div className="shrink-0">
+            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Au</label>
+            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold" />
+          </div>
         </div>
       </div>
 
@@ -1418,10 +1420,10 @@ const AdminCreateView = ({ readOnly = false }: { readOnly?: boolean }) => {
   const labelClass = "block text-[12px] font-medium text-gray-700 mb-1.5";
 
   return (
-    <div className="page-padding py-4 md:py-0 animate-fade-in max-w-[900px]">
+    <div className="page-padding py-4 md:py-0 animate-fade-in max-w-[900px]" style={{paddingTop: 30, paddingLeft:30}}>
       {/* Carte principale : formulaire de création */}
       {!readOnly && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8" style={{paddingLeft: 30}}>
           <h1 className="text-lg font-bold text-gray-900 uppercase tracking-tight mb-6">Créer un Admin</h1>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
@@ -1708,7 +1710,7 @@ const UsersManagerView = ({ readOnly = false }: { readOnly?: boolean }) => {
       )}
 
       {/* Header : Titre + Recherche + Export sur une ligne */}
-      <div className="flex flex-row flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-row flex-wrap items-center justify-between gap-3" style={{ paddingTop: 30, paddingLeft: 30, paddingBottom:12 }}>
         <h1 className="text-lg md:text-xl font-bold uppercase tracking-tight text-gray-900">Gestion Utilisateurs</h1>
         <div className="flex items-center gap-2">
           <input
@@ -1936,10 +1938,10 @@ const TicketsManagerView = () => {
 
   return (
     <div className="space-y-6 animate-fade-in p-4 md:p-4 md:p-8">
-      <div className="flex justify-between items-center bg-white p-6 rounded-none shadow-sm border border-gray-200">
+      <div className="flex justify-between items-center " style={{paddingTop: 30, paddingLeft: 30}}>
         <div>
           <h1 className="text-2xl font-black text-[#0f172a] uppercase tracking-tight">Tickets & Support</h1>
-          <p className="text-gray-500 text-sm">Suivi des demandes, bugs et besoins clients.</p>
+          
         </div>
       </div>
       <div className="bg-white rounded-none border border-gray-200 overflow-x-auto shadow-sm">
@@ -1995,19 +1997,19 @@ const AuditLogsView = () => {
 
   return (
     <div className="space-y-6 animate-fade-in p-4 md:p-4 md:p-8">
-      <div className="flex justify-between items-center bg-white p-6 rounded-none shadow-sm border border-gray-200">
+      <div className="flex justify-between items-center" style={{paddingTop:30, paddingLeft:30}}>
         <div>
-          <h1 className="text-2xl font-black text-[#0f172a] uppercase tracking-tight">Audit Logs</h1>
-          <p className="text-gray-500 text-sm">Historique des actions utilisateurs.</p>
+          <h1 className="text-2l font-black text-[#0f172a] uppercase tracking-tight">Logs</h1>
         </div>
         <div className="flex gap-3">
           <input value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} type="text" placeholder="Action, entité..." className="border-2 border-gray-50 bg-gray-50 rounded-none px-4 py-2 text-sm focus:outline-none focus:border-[#00A859] focus:bg-white" />
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-none border border-gray-200 shadow-sm flex flex-wrap gap-4 items-end">
-        <div>
-          <label className="block text-xs font-black uppercase text-gray-400 mb-1">Rôle</label>
+      <div className="bg-white p-4 rounded-none border border-gray-200 shadow-sm overflow-x-auto">
+        <div className="flex flex-nowrap gap-4 items-end min-w-max">
+          <div className="shrink-0">
+            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Rôle</label>
           <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value as UserRole | 'ALL'); setPage(1); }} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold uppercase">
             <option value="ALL">Tous</option>
             <option value="BUYER">BUYER</option>
@@ -2015,9 +2017,9 @@ const AuditLogsView = () => {
             <option value="PARTNER_ADMIN">PARTNER_ADMIN</option>
             <option value="SUPER_ADMIN">SUPER_ADMIN</option>
           </select>
-        </div>
-        <div>
-          <label className="block text-xs font-black uppercase text-gray-400 mb-1">Action</label>
+          </div>
+          <div className="shrink-0">
+            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Action</label>
           <select value={actionFilter} onChange={(e) => { setActionFilter(e.target.value); setPage(1); }} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold uppercase">
             <option value="ALL">Toutes</option>
             <option value="PRODUCT_CREATE">PRODUCT_CREATE</option>
@@ -2031,28 +2033,21 @@ const AuditLogsView = () => {
             <option value="USER_RESET_PASSWORD">USER_RESET_PASSWORD</option>
             <option value="USER_SOFT_DELETE">USER_SOFT_DELETE</option>
           </select>
-        </div>
-        <div>
-          <label className="block text-xs font-black uppercase text-gray-400 mb-1">Du</label>
+          </div>
+          <div className="shrink-0">
+            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Du</label>
           <input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(1); }} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold" />
-        </div>
-        <div>
-          <label className="block text-xs font-black uppercase text-gray-400 mb-1">Au</label>
-          <input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1); }} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold" />
-        </div>
-        <div>
-          <label className="block text-xs font-black uppercase text-gray-400 mb-1">Du</label>
-          <input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(1); }} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold" />
-        </div>
-        <div>
-          <label className="block text-xs font-black uppercase text-gray-400 mb-1">Au</label>
-          <input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1); }} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold" />
-        </div>
-        <div>
-          <label className="block text-xs font-black uppercase text-gray-400 mb-1">Page size</label>
+          </div>
+          <div className="shrink-0">
+            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Au</label>
+            <input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1); }} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold" />
+          </div>
+          <div className="shrink-0">
+            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Page size</label>
           <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold uppercase">
             {[5, 10, 20, 50].map(size => <option key={size} value={size}>{size}</option>)}
           </select>
+          </div>
         </div>
       </div>
 
@@ -2276,10 +2271,9 @@ const SettingsView = ({ userProfile }: { userProfile?: UserProfile }) => {
 
   return (
     <div className="space-y-6 animate-fade-in p-4 md:p-4 md:p-8">
-      <div className="flex justify-between items-center bg-white p-6 rounded-none shadow-sm border border-gray-200">
+      <div className="flex justify-between items-center" style={{ paddingTop: 30, paddingLeft: 16 }}>
         <div>
-          <h1 className="text-2xl font-black text-[#0f172a] uppercase tracking-tight">Paramètres & Configuration</h1>
-          <p className="text-gray-500 text-sm">Gérez vos informations personnelles et la sécurité du compte.</p>
+          <h1 className="text-[15px] font-black text-[#0f172a] uppercase tracking-tight">Paramètres & Configuration</h1>
         </div>
       </div>
 
@@ -2289,7 +2283,7 @@ const SettingsView = ({ userProfile }: { userProfile?: UserProfile }) => {
         </div>
       )}
 
-      <div className="bg-white rounded-none border border-gray-200 p-6 shadow-sm space-y-6">
+      <div className="space-y-6">
         <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Profil</h3>
         <div className="bg-[#43a047] p-5 rounded-none shadow-[0_18px_40px_rgba(0,0,0,0.2)]">
           <p className="text-xs font-black uppercase text-white/80 mb-2">Carte d'identité</p>
@@ -2343,7 +2337,7 @@ const SettingsView = ({ userProfile }: { userProfile?: UserProfile }) => {
       </div>
 
       {(userProfile?.role === 'STORE_ADMIN' || userProfile?.role === 'PARTNER_ADMIN') && userProfile?.cniStatus !== 'VERIFIED' && (
-      <div className="bg-white rounded-none border border-gray-200 p-6 shadow-sm space-y-4">
+      <div className="space-y-4">
         <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Pièce d'identité (CNI)</h3>
         <p className="text-xs text-gray-500">Recto/verso requis pour vérification.</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2447,7 +2441,7 @@ const SettingsView = ({ userProfile }: { userProfile?: UserProfile }) => {
         </div>
       )}
 
-      <div className="bg-white rounded-none border border-gray-200 p-6 shadow-sm space-y-4">
+      <div className="space-y-4">
         <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Sécurité</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Nouveau mot de passe" className="border border-gray-200 p-3 rounded-none text-sm font-bold" />
@@ -2481,12 +2475,12 @@ const VendorStockView = ({ readOnly = false }: { readOnly?: boolean } = {}) => {
 
   return (
     <div className="space-y-6 animate-fade-in p-4 md:p-4 md:p-8">
-      <div className="flex justify-between items-center bg-white p-6 rounded-none shadow-sm border border-gray-200">
+      <div className="flex justify-between items-center " style={{paddingTop: 30, paddingLeft: 30}}>
         <div>
-          <h1 className="text-2xl font-black text-[#0f172a] uppercase tracking-tight">Stock par Vendeur</h1>
-          <p className="text-gray-500 text-sm">Total stock et nombre de produits par vendeur.</p>
+          <h1 className="text-2l font-black text-[#0f172a] uppercase tracking-tight">Stock/Vendeur</h1>
+          
         </div>
-        <div className="text-xs font-black text-gray-400 uppercase">Total stock: {totalStock}</div>
+        <div className="text-xs font-black text-gray-400 uppercase">Total: {totalStock}</div>
       </div>
 
       <div className="bg-white rounded-none border border-gray-200 overflow-x-auto shadow-sm">
@@ -2550,12 +2544,12 @@ const VendorBenefitsView = ({ readOnly = false }: { readOnly?: boolean } = {}) =
 
   return (
     <div className="space-y-6 animate-fade-in p-4 md:p-4 md:p-8">
-      <div className="flex justify-between items-center bg-white p-6 rounded-none shadow-sm border border-gray-200">
+      <div className="flex justify-between items-center " style={{paddingTop: 30, paddingLeft: 30}}>
         <div>
-          <h1 className="text-2xl font-black text-[#0f172a] uppercase tracking-tight">Bénéfices par Vendeur</h1>
-          <p className="text-gray-500 text-sm">Entrées, en attente et total cumulé.</p>
+          <h1 className="text-2l font-black text-[#0f172a] uppercase tracking-tight">Bénéf/Vendeur</h1>
+          
         </div>
-        <div className="text-xs font-black text-gray-400 uppercase">Total cumulé: {totalAll.toLocaleString()} FCFA</div>
+        <div className="text-xs font-black text-gray-400 uppercase">Total: {totalAll.toLocaleString()} FCFA</div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -2615,12 +2609,11 @@ const VendorProductsView = ({ readOnly = false }: { readOnly?: boolean } = {}) =
 
   return (
     <div className="space-y-6 animate-fade-in p-4 md:p-4 md:p-8">
-      <div className="flex justify-between items-center bg-white p-6 rounded-none shadow-sm border border-gray-200">
+      <div className="flex justify-between items-center " style={{paddingTop:30, paddingLeft:30}}>
         <div>
-          <h1 className="text-2xl font-black text-[#0f172a] uppercase tracking-tight">Produits par Vendeur</h1>
-          <p className="text-gray-500 text-sm">Liste des produits publiés par chaque vendeur.</p>
+          <h1 className="text-sm font-black text-[#0f172a] uppercase tracking-tight">Produits</h1>
         </div>
-        <select value={selectedVendorId} onChange={(e) => setSelectedVendorId(e.target.value)} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold uppercase">
+        <select value={selectedVendorId} onChange={(e) => setSelectedVendorId(e.target.value)} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold uppercase" >
           {vendors.map(v => (
             <option key={v.id} value={v.id}>{v.name}</option>
           ))}
@@ -2711,8 +2704,8 @@ const StoreStatsDashboard = ({ products, userProfile }: { products: Product[], u
 
   return (
     <div className="px-3 py-3 md:p-8 animate-fade-in">
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <h2 className="admin-page-title text-[15px] md:text-xl font-bold text-[#0f172a] uppercase tracking-tight leading-tight">Tableau de bord : {userProfile?.businessName}</h2>
+      <div className="flex flex-wrap items-center gap-2 mb-4" style={{ paddingTop: 30, paddingLeft: 16 }}>
+        <h2 className="admin-page-title text-[15px] font-bold text-[#0f172a] uppercase tracking-tight leading-tight">Tableau de bord : {userProfile?.businessName}</h2>
         {userProfile?.cniStatus === 'VERIFIED' && (
           <span className="text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-full">
             CNI validée
@@ -2739,7 +2732,7 @@ const StoreStatsDashboard = ({ products, userProfile }: { products: Product[], u
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-none shadow-sm border border-gray-100">
+        <div>
           <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-3">Mon Solde Vendeur</h3>
           <div className="flex items-baseline gap-2 mb-4">
             <span className="text-3xl font-black text-[#00A859]">{Number(userProfile?.walletBalance || 0).toLocaleString()}</span>
@@ -2797,7 +2790,7 @@ const StoreStatsDashboard = ({ products, userProfile }: { products: Product[], u
             Demander un retrait
           </button>
         </div>
-        <div className="bg-white p-6 rounded-none shadow-sm border border-gray-100">
+        <div>
           <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-3">Historique retraits</h3>
           {payoutRequests.length === 0 ? (
             <p className="text-xs text-gray-400">Aucune demande.</p>
@@ -3034,7 +3027,7 @@ const PayoutsAdminView = ({ readOnly = false }: { readOnly?: boolean }) => {
   };
 
   return (
-    <div className="px-3 py-3 md:p-8 space-y-4">
+    <div className="px-3 py-3 md:p-8 space-y-4" style={{paddingTop: 45, paddingLeft:30}}>
       <h1 className="text-[15px] md:text-xl font-bold uppercase tracking-tight leading-tight mb-1">Validation des retraits{readOnly && <span className="ml-1 text-amber-600 font-bold text-xs">(Lecture seule)</span>}</h1>
       <p className="text-[10px] md:text-xs text-[#666] mb-3">Retraits et commissions</p>
       {msg && <div className="text-[12px] text-gray-500">{msg}</div>}
@@ -3186,24 +3179,26 @@ const OrdersManagerView = ({ sellerId, actorId }: { sellerId?: string; actorId?:
 
   return (
     <div className="p-4 md:p-4 md:p-8 animate-fade-in space-y-6">
-      <h1 className="text-2xl font-black uppercase tracking-tight">Gestion des Commandes Entrantes</h1>
-      <div className="bg-white p-4 rounded-none border border-gray-200 shadow-sm flex flex-wrap gap-4 items-end">
-        <div>
-          <label className="block text-xs font-black uppercase text-gray-400 mb-1">Statut</label>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold uppercase">
-            <option value="ALL">Tous</option>
-            <option value="PENDING">En attente</option>
-            <option value="PAID">Payé</option>
-            <option value="DELIVERED">Livré</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-black uppercase text-gray-400 mb-1">Du</label>
-          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold" />
-        </div>
-        <div>
-          <label className="block text-xs font-black uppercase text-gray-400 mb-1">Au</label>
-          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold" />
+      <h1 className="text-[15px] font-black uppercase tracking-tight" style={{ paddingTop: 30, paddingLeft: 20 }}>Commandes Entrantes</h1>
+      <div className="bg-white p-4 rounded-none border border-gray-200 shadow-sm overflow-x-auto">
+        <div className="flex flex-nowrap gap-4 items-end min-w-max">
+          <div className="shrink-0">
+            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Statut</label>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold uppercase">
+              <option value="ALL">Tous</option>
+              <option value="PENDING">En attente</option>
+              <option value="PAID">Payé</option>
+              <option value="DELIVERED">Livré</option>
+            </select>
+          </div>
+          <div className="shrink-0">
+            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Du</label>
+            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold" />
+          </div>
+          <div className="shrink-0">
+            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Au</label>
+            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="border border-gray-200 px-3 py-2 rounded-none text-xs font-bold" />
+          </div>
         </div>
       </div>
       <div className="bg-white rounded-none border border-gray-200 overflow-x-auto shadow-sm">

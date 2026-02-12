@@ -1,6 +1,7 @@
 /* Base layout and safe area (Status Bar Overlay fix) */
+/* SystemBars injecte automatiquement --safe-area-inset-x si insetsHandling: "css" */
 :root {
-  --safe-top: max(35px, env(safe-area-inset-top));
+  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
   --header-height: calc(56px + var(--safe-top));
 }
 

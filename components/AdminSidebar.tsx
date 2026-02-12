@@ -94,14 +94,16 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ role, onLogout, activeSecti
       {/* 1. BOUTON BURGER — espaceur en haut puis bouton (padding-top bien au-dessus du burger) */}
       <div className="lg:hidden fixed z-[70] left-4 flex flex-col">
         <div style={{ height: 'var(--safe-top)', minHeight: 'var(--safe-top)' }} aria-hidden />
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center bg-[#0f172a] text-white rounded-md border border-gray-700 active:scale-95 transition-all shrink-0"
-          style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
-          aria-label={isOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
-        >
-          {isOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
+        <div style={{ paddingTop: 30 }}>
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center bg-[#0f172a] text-white rounded-md border border-gray-700 active:scale-95 transition-all shrink-0"
+            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+            aria-label={isOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+          >
+            {isOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
       </div>
 
       {/* 2. OVERLAY / BACKDROP — plein écran, clic pour fermer */}
@@ -125,7 +127,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ role, onLogout, activeSecti
         {/* En-tête : logo + safe area (pas sous la batterie) */}
         <div
           className="shrink-0 border-b border-gray-800"
-          style={{ paddingTop: 'var(--safe-top)' }}
+          style={{ paddingTop: 30 }}
         >
           <div className="p-4 lg:p-8 pb-6 flex items-center gap-4">
             <img src="/img/dest.png" alt="Logo" className="w-10 h-10 object-contain bg-white rounded-xl p-1.5 shadow-lg" />

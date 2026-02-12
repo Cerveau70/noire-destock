@@ -74,8 +74,17 @@ const Navbar: React.FC<NavbarProps> = (props) => {
     <nav className="w-full sticky top-0 z-[100] font-sans flex flex-col">
       
       {/* --- 1. HEADER PRINCIPAL : fond vert jusqu'en haut, contenu sous la barre de statut --- */}
-      <div className="bg-[#064e3b] text-white px-4 py-2 shadow-md w-full box-border" style={{ paddingTop: 'var(--safe-top)', paddingLeft: 16, paddingRight: 16 }}>
-        <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4">
+      <div 
+    className="bg-[#064e3b] text-white shadow-md w-full box-border" 
+    style={{ 
+      /* On force 45px minimum + la zone de sécurité pour l'API 36 */
+      paddingTop: 30, 
+      paddingLeft: 16, 
+      paddingRight: 16,
+      paddingBottom: 12 
+    }}
+  >
+    <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4">
           
           {/* LOGO */}
           <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={props.onHome}>
