@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ShoppingCart, Menu, X, User, Search, ChevronDown, LogOut, ShieldCheck, Store, Users, Home, LayoutGrid, Apple, Beer, Coffee, Beef, Briefcase, UserCircle, Power, Heart } from 'lucide-react';
+import { ShoppingCart, Menu, X, User, Search, ChevronDown, LogOut, ShieldCheck, Store, Users, Home, LayoutGrid, Apple, Beer, Coffee, Beef, Briefcase, UserCircle, Power, Heart, HelpCircle } from 'lucide-react';
 import { UserRole } from '../types';
 
 interface NavbarProps {
@@ -19,8 +19,15 @@ interface NavbarProps {
   userName?: string | null;
   onAccount: () => void;
   isCartOpen: boolean;
+  onMenuOpenChange?: (open: boolean) => void;
   onHome: () => void;
   onQuit?: () => void;
+  /** Masquer la navbar inférieure quand l'utilisateur scroll près du footer (partout : Catégories, Panier, Favoris, Compte inclus) */
+  hideBottomNavNearFooter?: boolean;
+  /** Masquer complètement la navbar inférieure (ex: page produit avec CTA sticky) */
+  hideBottomNav?: boolean;
+  /** Ouvrir le tiroir Aide (mobile) */
+  onOpenHelp?: () => void;
 }
 
 const Navbar: React.FC<NavbarProps> = (props) => {
@@ -41,6 +48,9 @@ const Navbar: React.FC<NavbarProps> = (props) => {
   }, []);
 
   useEffect(() => { setIsMenuOpen(false); }, [props.currentPage]);
+  useEffect(() => {
+    props.onMenuOpenChange?.(isMenuOpen);
+  }, [isMenuOpen, props.onMenuOpenChange]);
 
   const categories = [
     { id: 'marketplace', label: 'Supermarché', icon: <LayoutGrid size={16}/> },
@@ -63,8 +73,8 @@ const Navbar: React.FC<NavbarProps> = (props) => {
   return (
     <nav className="w-full sticky top-0 z-[100] font-sans flex flex-col">
       
-      {/* --- 1. HEADER PRINCIPAL (safe-area: logo et menu ne touchent jamais la barre de statut) --- */}
-      <div className="bg-[#064e3b] text-white px-3 py-2 shadow-md safe-area-top">
+      {/* --- 1. HEADER PRINCIPAL : fond vert jusqu'en haut, contenu sous la barre de statut --- */}
+      <div className="bg-[#064e3b] text-white px-4 py-2 shadow-md w-full box-border" style={{ paddingTop: 'var(--safe-top)', paddingLeft: 16, paddingRight: 16 }}>
         <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4">
           
           {/* LOGO */}
@@ -142,6 +152,12 @@ const Navbar: React.FC<NavbarProps> = (props) => {
               </div>
             </div>
 
+            {/* AIDE (Mobile) : ouvre le Help Drawer — à côté du burger */}
+            {props.onOpenHelp && (
+              <button className="md:hidden p-1.5 text-white hover:text-emerald-200 active:scale-90 transition-transform" onClick={props.onOpenHelp} aria-label="Aide">
+                <HelpCircle size={24} />
+              </button>
+            )}
             {/* BURGER MOBILE */}
             <button className="md:hidden p-1 text-white active:scale-90 transition-transform" onClick={() => setIsMenuOpen(!isMenuOpen)}>
               {isMenuOpen ? <X size={32} /> : <Menu size={32} />}
@@ -175,7 +191,7 @@ const Navbar: React.FC<NavbarProps> = (props) => {
 
       {/* --- 3. MENU BURGER MOBILE (Regroupe tout) --- */}
       {isMenuOpen && (
-        <div className="fixed inset-0 top-[60px] bg-black/20 backdrop-blur-[2px] z-[1000] md:hidden flex flex-col animate-in fade-in duration-200">
+        <div className="fixed inset-x-0 bottom-0 z-[1000] md:hidden flex flex-col animate-in fade-in duration-200 bg-black/20 backdrop-blur-[2px]" style={{ top: 'var(--header-height)' }}>
           <div className="flex-1 overflow-y-auto p-3 pb-24">
             <div className="ml-auto w-full max-w-sm bg-white shadow-2xl rounded-2xl overflow-hidden flex flex-col">
             
@@ -279,12 +295,14 @@ const Navbar: React.FC<NavbarProps> = (props) => {
         </div>
       )}
 
-      {/* --- 4. NAVBAR INFÉRIEURE (Mobile) - 5 onglets comme capture 3 --- */}
+      {/* --- 4. NAVBAR INFÉRIEURE (Mobile) - disparaît près du footer partout, réapparaît en remontant --- */}
       <div
-        className="md:hidden fixed bottom-0 left-0 right-0 z-[1200] border-t border-gray-200 bg-white/90 backdrop-blur-md mobile-bottom-nav"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)', minHeight: 56 }}
+        className={`md:hidden fixed bottom-0 left-0 right-0 z-[1200] border-t border-gray-200 bg-white/90 backdrop-blur-md mobile-bottom-nav transition-transform duration-300 ease-out ${
+          props.hideBottomNav || props.hideBottomNavNearFooter ? 'translate-y-full pointer-events-none' : 'translate-y-0'
+        }`}
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)', minHeight: 56, paddingLeft: 16, paddingRight: 16 }}
       >
-        <div className="grid grid-cols-5 font-bold uppercase tracking-wide text-[10px] h-14">
+        <div className="grid grid-cols-5 font-bold uppercase tracking-wide text-[10px] h-14 max-w-[100%]">
           <button
             onClick={() => { (props.onNavToPage || props.setCurrentPage)('home'); props.onHome(); setIsMenuOpen(false); setIsMobileSpaceOpen(false); }}
             className={`flex flex-col items-center justify-center gap-0.5 hover:text-[#064e3b] active:scale-95 transition-transform ${props.currentPage === 'home' ? 'text-[#064e3b]' : 'text-gray-600'}`}
@@ -331,7 +349,7 @@ const Navbar: React.FC<NavbarProps> = (props) => {
       {/* --- LISTE ESPACES (Mobile) --- */}
       {isMobileSpaceOpen && (
         <div className="md:hidden fixed inset-0 z-[1250] bg-white">
-          <div className="p-4 flex items-center justify-between border-b border-gray-100">
+          <div className="p-4 flex items-center justify-between border-b border-gray-100" style={{ paddingTop: 'max(16px, var(--safe-top))' }}>
             <h3 className="text-sm font-black uppercase tracking-widest text-gray-600">Choisir un espace</h3>
             <button onClick={() => setIsMobileSpaceOpen(false)} className="text-gray-400"><X size={20} /></button>
           </div>

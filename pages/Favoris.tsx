@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart } from 'lucide-react';
+import { Heart, ArrowLeft } from 'lucide-react';
 import { Product } from '../types';
 import ProductCard from '../components/ProductCard';
 
@@ -8,11 +8,13 @@ interface FavorisProps {
   favoriteIds: string[];
   onToggleFavorite: (productId: string) => void;
   onAddToCart: (p: Product) => void;
+  onOpenProduct?: (productId: string) => void;
   contactChannel: 'whatsapp' | 'messages';
   onContactChannelChange: (channel: 'whatsapp' | 'messages') => void;
   isAuthenticated: boolean;
   onRequireAuth: () => void;
   onStartChat: (sellerId?: string) => void;
+  onBack?: () => void;
 }
 
 const Favoris: React.FC<FavorisProps> = ({
@@ -20,11 +22,13 @@ const Favoris: React.FC<FavorisProps> = ({
   favoriteIds,
   onToggleFavorite,
   onAddToCart,
+  onOpenProduct,
   contactChannel,
   onContactChannelChange,
   isAuthenticated,
   onRequireAuth,
-  onStartChat
+  onStartChat,
+  onBack
 }) => {
   const favorisProducts = products.filter(p => favoriteIds.includes(p.id));
   const byCategory = React.useMemo(() => {
@@ -38,12 +42,21 @@ const Favoris: React.FC<FavorisProps> = ({
   }, [favorisProducts]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 md:py-8 pb-24 md:pb-8">
-      <div className="flex justify-between items-end mb-6 pb-4 border-b border-gray-200">
+    <div className="max-w-7xl mx-auto w-full py-6 md:py-8 pb-24 md:pb-8 min-w-0 box-border">
+      <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200 gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-black text-[#0f172a] uppercase tracking-tight">Favoris</h1>
           <p className="text-gray-500 mt-1 text-sm">{favorisProducts.length} produit(s) en favori</p>
         </div>
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="shrink-0 p-2 rounded-lg border border-gray-200 bg-white text-[#064e3b] hover:bg-emerald-50 active:scale-95 transition-all"
+            aria-label="Retour"
+          >
+            <ArrowLeft size={24} />
+          </button>
+        )}
       </div>
 
       {favorisProducts.length === 0 ? (
@@ -65,11 +78,7 @@ const Favoris: React.FC<FavorisProps> = ({
                       onAddToCart={onAddToCart}
                       isFavorite={favoriteIds.includes(product.id)}
                       onToggleFavorite={onToggleFavorite}
-                      contactChannel={contactChannel}
-                      onContactChannelChange={onContactChannelChange}
-                      isAuthenticated={isAuthenticated}
-                      onRequireAuth={onRequireAuth}
-                      onStartChat={onStartChat}
+                      onProductClick={onOpenProduct}
                     />
                   </div>
                 ))}

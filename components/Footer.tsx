@@ -11,7 +11,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   const PLAY_STORE_LINK = "https://play.google.com/store/apps/details?id=com.ivoiredestock.app";
 
   return (
-    <footer className="w-full">
+    <footer className="w-full hidden md:block">
       {/* Newsletter Section - compacte (style Jumia/Amazon) */}
       <div className="bg-[#388E3C] py-5 md:py-8 px-4 md:px-8 border-b border-white/10">
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-4 md:gap-6">

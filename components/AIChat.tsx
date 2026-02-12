@@ -76,7 +76,8 @@ const AIChat: React.FC<AIChatProps> = ({ productContext = [], hideFAB = false })
       {!hideFAB && (
         <button
           onClick={() => setIsOpen(true)}
-          className={`fixed bottom-20 right-4 md:bottom-6 md:right-6 z-[1300] bg-[#064e3b] text-white p-4 rounded-full shadow-xl hover:bg-[#065f46] transition-all duration-300 transform hover:scale-105 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
+          className={`fixed bottom-20 right-4 md:bottom-6 md:right-6 z-[1200] bg-[#064e3b] text-white p-4 rounded-full shadow-xl hover:bg-[#065f46] transition-all duration-300 transform hover:scale-105 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
+          style={{ marginBottom: 'env(safe-area-inset-bottom, 0)' }}
         >
           <MessageCircle size={26} />
         </button>
@@ -94,7 +95,7 @@ const AIChat: React.FC<AIChatProps> = ({ productContext = [], hideFAB = false })
       {/* Chat Window — Bottom Sheet mobile (85vh), fenêtre desktop */}
       <div className={`fixed bottom-0 left-0 right-0 md:bottom-6 md:right-6 md:left-auto z-[1310] w-full md:max-w-sm h-[85vh] md:h-[calc(100vh-3rem)] max-h-[85vh] md:max-h-none bg-white rounded-t-2xl md:rounded-t-xl shadow-2xl border border-gray-200 overflow-hidden transition-all duration-300 origin-bottom md:origin-bottom-right flex flex-col ${isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-100 opacity-0 pointer-events-none translate-y-full md:translate-y-0'}`}>
         {/* Header — Safe Area + coins arrondis */}
-        <div className="bg-[#064e3b] pt-[max(30px,env(safe-area-inset-top))] pb-4 px-4 flex justify-between items-center text-white">
+        <div className="bg-[#064e3b] pb-4 px-4 flex justify-between items-center text-white" style={{ paddingTop: 'var(--safe-top)' }}>
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-white/10 rounded-full">
               <Bot size={20} />

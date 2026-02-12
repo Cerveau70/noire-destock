@@ -131,7 +131,7 @@ const BuyerDashboard: React.FC<BuyerDashboardProps> = ({ products, userProfile, 
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-4 md:py-8 animate-fade-in relative">
+    <div className="max-w-7xl mx-auto w-full py-4 md:py-8 animate-fade-in relative min-w-0 box-border">
 
       {/* HEADER HORIZONTAL : Avatar + Nom/Rôle + Déconnexion (compact, gain ~100px) */}
       <div className="flex flex-row items-center gap-3 md:gap-4 mb-4 md:mb-6 p-3 md:p-4 rounded-xl bg-white/80 border border-gray-100">
@@ -152,16 +152,16 @@ const BuyerDashboard: React.FC<BuyerDashboardProps> = ({ products, userProfile, 
           >
             {avatarSaving ? '…' : 'Photo'}
           </button>
-        </div>
+          </div>
         <div className="flex-1 min-w-0">
           <h1 className="text-base md:text-xl font-black text-[#0f172a] uppercase tracking-tight truncate">Mon Espace Client</h1>
           <p className="text-[11px] md:text-sm text-gray-500 font-medium truncate">Bienvenue, <span className="text-[#064e3b] font-bold">{userProfile?.name}</span></p>
-          <button
-            onClick={handleLogoutClick}
+        <button
+          onClick={handleLogoutClick}
             className="mt-1 text-[10px] md:text-xs font-semibold text-red-500 hover:text-red-600 border border-transparent hover:border-red-200 rounded px-2 py-0.5 transition-colors"
-          >
+        >
             Déconnexion
-          </button>
+        </button>
         </div>
       </div>
 
@@ -208,11 +208,11 @@ const BuyerDashboard: React.FC<BuyerDashboardProps> = ({ products, userProfile, 
                 <div className="flex items-center gap-2">
                   <div className="p-1.5 bg-emerald-500/20 rounded-full"><Wallet className="text-emerald-400" size={20} /></div>
                   <span className="text-emerald-200 font-bold uppercase text-[10px] tracking-widest">Mon Solde</span>
-                </div>
+              </div>
                 <div className="flex items-baseline gap-1">
                   <span className="text-2xl md:text-3xl font-black tracking-tight">{userProfile?.walletBalance?.toLocaleString() || 0}</span>
                   <span className="text-sm font-medium text-emerald-400">FCFA</span>
-                </div>
+              </div>
               </div>
               <div className="flex gap-2">
                 <button
@@ -1335,7 +1335,18 @@ const DeliveryTrackingView = ({ sellerId, actorId }: { sellerId?: string; actorI
   );
 };
 
-// 3. CREATE ADMINS (Super Admin)
+// Initiales pour avatar (Nom + Email)
+const getAdminInitials = (u: { full_name?: string; email?: string }) => {
+  if (u.full_name && u.full_name.trim()) {
+    const parts = u.full_name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  if (u.email) return u.email.slice(0, 2).toUpperCase();
+  return '?';
+};
+
+// 3. CREATE ADMINS (Super Admin) — Clean & Functional UI
 const AdminCreateView = ({ readOnly = false }: { readOnly?: boolean }) => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -1403,74 +1414,96 @@ const AdminCreateView = ({ readOnly = false }: { readOnly?: boolean }) => {
     }
   };
 
+  const inputClass = "w-full bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00A859] focus:border-[#00A859] transition-colors";
+  const labelClass = "block text-[12px] font-medium text-gray-700 mb-1.5";
+
   return (
-    <div className="space-y-4 animate-fade-in page-padding py-4 md:p-8">
-      <div className="flex justify-between items-center bg-white p-4 rounded-lg border border-gray-200" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        <div>
-          <h1 className="mobile-h1 text-[18px] md:text-xl font-bold uppercase tracking-tight leading-tight mb-1 text-[#0f172a]">Créer un Admin</h1>
-          <p className="text-[10px] md:text-xs text-[#666]">Super Admin et Admin (lecture seule).{readOnly && <span className="ml-1 text-amber-600 font-bold">(Lecture seule)</span>}</p>
-        </div>
-      </div>
+    <div className="page-padding py-4 md:py-0 animate-fade-in max-w-[900px]">
+      {/* Carte principale : formulaire de création */}
       {!readOnly && (
-        <div className="bg-white p-4 rounded-md border border-gray-200 space-y-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-              <label className="block text-[11px] font-bold text-[#666] mb-1">Nom complet</label>
-              <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full h-[44px] border border-gray-200 px-3 rounded-lg text-[14px] bg-[#F1F1F1]" placeholder="Ex: Admin Magasin" />
-          </div>
-          <div>
-              <label className="block text-[12px] font-medium uppercase text-[#666] mb-1">Rôle</label>
-              <select value={role} onChange={(e) => setRole(e.target.value as UserRole)} className="w-full h-[44px] border border-gray-200 px-3 rounded-md text-[14px] font-medium uppercase bg-[#F1F1F1]">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+          <h1 className="text-lg font-bold text-gray-900 uppercase tracking-tight mb-6">Créer un Admin</h1>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className={labelClass}>Nom complet</label>
+              <input value={fullName} onChange={(e) => setFullName(e.target.value)} className={inputClass} placeholder="Ex: Admin Magasin" />
+            </div>
+            <div>
+              <label className={labelClass}>Rôle</label>
+              <select value={role} onChange={(e) => setRole(e.target.value as UserRole)} className={inputClass}>
                 <option value="ADMIN">Admin (lecture seule)</option>
                 <option value="SUPER_ADMIN">Super Admin</option>
-            </select>
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Email</label>
+              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" className={inputClass} placeholder="admin@ivoiredestock.com" />
+            </div>
+            <div>
+              <label className={labelClass}>Mot de passe</label>
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} placeholder="Mot de passe temporaire" />
+            </div>
           </div>
-          <div>
-              <label className="block text-[12px] font-medium uppercase text-[#666] mb-1">Email</label>
-              <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full h-[44px] border border-gray-200 px-3 rounded-md text-[14px] bg-[#F1F1F1]" placeholder="admin@ivoiredestock.com" />
-          </div>
-          <div>
-              <label className="block text-[12px] font-medium uppercase text-[#666] mb-1">Mot de passe</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full h-[44px] border border-gray-200 px-3 rounded-md text-[14px] bg-[#F1F1F1]" placeholder="Mot de passe temporaire" />
-          </div>
-        </div>
-          {statusMsg && <div className="text-[12px] font-medium text-gray-500">{statusMsg}</div>}
-        <button
-          onClick={handleCreate}
-          disabled={loading}
-            className="w-full h-[45px] bg-[#00A859] text-white rounded-lg font-bold uppercase text-[13px] disabled:opacity-50"
-            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
-        >
-          {loading ? 'Création...' : 'Créer Admin'}
-        </button>
+          {statusMsg && <p className="mt-3 text-sm font-medium text-gray-500">{statusMsg}</p>}
+          <button
+            onClick={handleCreate}
+            disabled={loading}
+            className="mt-6 w-full h-12 rounded-lg bg-[#00A859] hover:bg-green-700 text-white text-sm font-bold uppercase transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Création...' : 'Créer Admin'}
+          </button>
         </div>
       )}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white p-4 rounded-md border border-gray-200" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <h2 className="text-[15px] font-bold uppercase tracking-tight border-b border-[#EEEEEE] pb-2 mb-3 text-[#0f172a]">Super Admins</h2>
+
+      {readOnly && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+          <h1 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Créer un Admin</h1>
+          <p className="text-sm text-amber-600 font-semibold mt-1">(Lecture seule — accès réservé au Super Admin)</p>
+        </div>
+      )}
+
+      {/* Espace 32px entre formulaire et listes */}
+      <div className="h-8" />
+
+      {/* Listes : grille 2 colonnes */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-tight mb-4">Super Admins</h2>
           {superAdmins.length === 0 ? (
-            <p className="text-sm text-gray-500 font-bold">Aucun super admin.</p>
+            <p className="text-sm text-gray-500 font-medium">Aucun super admin.</p>
           ) : (
-            <ul className="space-y-1 text-sm">
+            <ul className="space-y-0 divide-y divide-gray-100">
               {superAdmins.map(u => (
-                <li key={u.id} className="flex items-center justify-between border-b border-[#EEEEEE] py-2">
-                  <span className="text-[14px] font-bold text-[#0f172a]">{u.full_name || '—'}</span>
-                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">Super Admin</span>
+                <li key={u.id} className="flex items-center gap-3 py-3 first:pt-0">
+                  <div className="flex-shrink-0 w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-xs font-bold">
+                    {getAdminInitials(u)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{u.full_name || '—'}</p>
+                    <p className="text-xs text-gray-500 truncate">{u.email || ''}</p>
+                  </div>
+                  <span className="flex-shrink-0 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-800">Super Admin</span>
                 </li>
               ))}
             </ul>
           )}
         </div>
-        <div className="bg-white p-4 rounded-md border border-gray-200" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <h2 className="text-[15px] font-bold uppercase tracking-tight border-b border-[#EEEEEE] pb-2 mb-3 text-[#0f172a]">Admins (lecture seule)</h2>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-tight mb-4">Admins (lecture seule)</h2>
           {admins.length === 0 ? (
-            <p className="text-sm text-gray-500 font-bold">Aucun admin.</p>
+            <p className="text-sm text-gray-500 font-medium">Aucun admin.</p>
           ) : (
-            <ul className="space-y-1 text-sm">
+            <ul className="space-y-0 divide-y divide-gray-100">
               {admins.map(u => (
-                <li key={u.id} className="flex items-center justify-between border-b border-[#EEEEEE] py-2">
-                  <span className="text-[14px] font-bold text-[#0f172a]">{u.full_name || '—'}</span>
-                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-blue-50 text-blue-700">Admin</span>
+                <li key={u.id} className="flex items-center gap-3 py-3 first:pt-0">
+                  <div className="flex-shrink-0 w-9 h-9 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center text-xs font-bold">
+                    {getAdminInitials(u)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{u.full_name || '—'}</p>
+                    <p className="text-xs text-gray-500 truncate">{u.email || ''}</p>
+                  </div>
+                  <span className="flex-shrink-0 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-800">Admin</span>
                 </li>
               ))}
             </ul>
@@ -1657,139 +1690,223 @@ const UsersManagerView = ({ readOnly = false }: { readOnly?: boolean }) => {
     URL.revokeObjectURL(url);
   };
 
+  const roleLabel = (r: string) => r === 'SUPER_ADMIN' ? 'Super Admin' : r === 'ADMIN' ? 'Admin' : (r || 'BUYER');
+  const statusBadge = (u: any) => {
+    if (u.status === 'ACTIVE') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-green-50 text-green-700"><span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Actif</span>;
+    if (u.status === 'PENDING') return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700">En attente</span>;
+    if (u.status === 'SUSPENDED') return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-yellow-50 text-yellow-700">Suspendu</span>;
+    if (u.status === 'DELETED') return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-100 text-gray-600">Supprimé</span>;
+    return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-red-50 text-red-700">Banni</span>;
+  };
+
   return (
-    <div className="space-y-4 animate-fade-in page-padding py-4 md:p-8 min-w-0">
+    <div className="animate-fade-in page-padding py-4 md:p-8 min-w-0 space-y-4">
       {userMsg && (
-        <div className={`p-3 rounded-lg border-l-4 text-[12px] leading-snug ${userMsg.type === 'success' ? 'bg-emerald-50 border-emerald-500 text-emerald-800' : 'bg-red-50 border-red-500 text-red-800'}`}>
+        <div className={`p-3 rounded-lg border-l-4 text-xs ${userMsg.type === 'success' ? 'bg-emerald-50 border-emerald-500 text-emerald-800' : 'bg-red-50 border-red-500 text-red-800'}`}>
           {userMsg.text}
         </div>
       )}
-      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-white p-4 rounded-lg border border-gray-200" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        <div>
-          <h1 className="mobile-h1 text-[18px] md:text-xl font-bold uppercase tracking-tight leading-tight mb-1 text-[#0f172a]">Gestion Utilisateurs</h1>
-          <p className="text-[10px] md:text-xs text-[#666]">Centrales, vendeurs et clients.{readOnly && <span className="ml-1 text-amber-600 font-bold">(Lecture seule)</span>}</p>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <input value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} type="text" placeholder="Nom, email..." className="h-[44px] border border-gray-200 rounded-md px-3 text-[14px] bg-[#F1F1F1] focus:outline-none focus:border-[#00A859]" />
-          {!readOnly && <button onClick={exportCsv} className="h-[44px] bg-[#00A859] text-white rounded-md font-bold uppercase text-[13px]">Exporter CSV</button>}
+
+      {/* Header : Titre + Recherche + Export sur une ligne */}
+      <div className="flex flex-row flex-wrap items-center justify-between gap-3">
+        <h1 className="text-lg md:text-xl font-bold uppercase tracking-tight text-gray-900">Gestion Utilisateurs</h1>
+        <div className="flex items-center gap-2">
+          <input
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setPage(1); }}
+            type="text"
+            placeholder="Nom, email..."
+            className="h-10 w-40 md:w-52 bg-gray-100 border-0 rounded-lg px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#00A859]"
+          />
+          {!readOnly && (
+            <button onClick={exportCsv} className="h-10 px-4 rounded-lg bg-[#00A859] text-white text-[13px] font-bold uppercase hover:bg-green-700 transition-colors">
+              Exporter CSV
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="flex flex-nowrap border-b border-gray-200 bg-white rounded-lg overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        <button type="button" onClick={() => { setCategoryTab('centrales'); setPage(1); }} className={`filter-btn flex-1 min-w-0 h-8 text-[12px] font-bold uppercase ${categoryTab === 'centrales' ? 'bg-[#00A859] text-white' : 'bg-[#F1F1F1] text-gray-600'}`}>Centrales</button>
-        <button type="button" onClick={() => { setCategoryTab('vendeurs'); setPage(1); }} className={`filter-btn flex-1 min-w-0 h-8 text-[12px] font-bold uppercase ${categoryTab === 'vendeurs' ? 'bg-[#00A859] text-white' : 'bg-[#F1F1F1] text-gray-600'}`}>Vendeurs</button>
-        <button type="button" onClick={() => { setCategoryTab('clients'); setPage(1); }} className={`filter-btn flex-1 min-w-0 h-8 text-[12px] font-bold uppercase ${categoryTab === 'clients' ? 'bg-[#00A859] text-white' : 'bg-[#F1F1F1] text-gray-600'}`}>Clients</button>
-        </div>
+      {/* Onglets : CENTRALES | VENDEURS | CLIENTS (style pilule / souligné) */}
+      <div className="flex border-b border-gray-200">
+        {(['centrales', 'vendeurs', 'clients'] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => { setCategoryTab(tab); setPage(1); }}
+            className={`px-4 py-2.5 text-[13px] font-semibold uppercase transition-colors border-b-2 -mb-px ${categoryTab === tab ? 'border-[#00A859] text-[#00A859]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          >
+            {tab === 'centrales' ? 'Centrales' : tab === 'vendeurs' ? 'Vendeurs' : 'Clients'}
+          </button>
+        ))}
+      </div>
 
-      <div className="bg-white p-3 rounded-md border border-gray-200 flex flex-wrap gap-3 items-end" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        <div>
-          <label className="block text-[12px] font-medium text-[#666] mb-1">Statut</label>
-          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="h-[44px] border border-gray-200 px-3 rounded-md text-[14px] font-medium uppercase bg-[#F1F1F1]">
+      {/* Filtres : Statut + Page size sur une ligne compacte */}
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <label className="text-[11px] font-medium text-gray-500 uppercase">Statut</label>
+          <select
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+            className="h-9 min-w-[120px] border border-gray-200 rounded-lg px-3 text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#00A859] focus:border-[#00A859]"
+          >
             <option value="ALL">Tous</option>
-            <option value="ACTIVE">ACTIVE</option>
-            <option value="PENDING">PENDING</option>
-            <option value="BANNED">BANNED</option>
-            <option value="DELETED">DELETED</option>
-            <option value="SUSPENDED">SUSPENDED</option>
+            <option value="ACTIVE">Actif</option>
+            <option value="PENDING">En attente</option>
+            <option value="BANNED">Banni</option>
+            <option value="DELETED">Supprimé</option>
+            <option value="SUSPENDED">Suspendu</option>
           </select>
         </div>
-        <div>
-          <label className="block text-[12px] font-medium text-[#666] mb-1">Page size</label>
-          <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} className="h-[44px] border border-gray-200 px-3 rounded-md text-[14px] font-medium uppercase bg-[#F1F1F1]">
-            {[5, 10, 20, 50].map(size => <option key={size} value={size}>{size}</option>)}
+        <div className="flex items-center gap-2">
+          <label className="text-[11px] font-medium text-gray-500 uppercase">Page</label>
+          <select
+            value={pageSize}
+            onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+            className="h-9 min-w-[80px] border border-gray-200 rounded-lg px-3 text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-[#00A859] focus:border-[#00A859]"
+          >
+            {[5, 10, 20, 50].map((size) => <option key={size} value={size}>{size}</option>)}
           </select>
         </div>
       </div>
 
-      <div className="bg-white rounded-md border border-gray-200 overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+      {/* Desktop : Tableau horizontal uniquement */}
+      <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left border-collapse text-xs md:text-sm">
-            <thead className="bg-gray-50 text-[11px] font-bold uppercase text-[#666] border-b border-[#EEEEEE]">
-              <tr><th className="p-3 md:p-4">Utilisateur</th><th className="p-3 md:p-4 text-[11px] font-medium uppercase text-[#666]">Rôle</th><th className="p-3 md:p-4 text-[11px] font-medium uppercase text-[#666]">Business</th><th className="p-3 md:p-4 text-[11px] font-medium uppercase text-[#666]">Statut</th>{!readOnly && <th className="p-3 md:p-4 text-[11px] font-medium uppercase text-[#666] text-right">Actions</th>}</tr>
-          </thead>
-            <tbody className="divide-y divide-[#EEEEEE]">
-            {users.map(u => (
-              <tr key={u.id} className="hover:bg-gray-50/50 transition-colors">
-                <td className="p-3 md:p-4 text-[14px] py-4">
-                  <div className="font-semibold text-[#0f172a] text-[14px] leading-tight">{u.full_name || '—'}</div>
-                  <div className="text-[11px] text-gray-500 leading-snug">{u.email || ''}</div>
-                </td>
-                <td className="p-3 md:p-4 py-4">
-                  {editingId === u.id ? (
-                    <select value={editRole} onChange={(e) => setEditRole(e.target.value as UserRole)} className="border border-gray-200 text-[12px] font-medium uppercase px-2 py-1 rounded-md bg-[#F1F1F1]">
-                      <option value="BUYER">BUYER</option>
-                      <option value="STORE_ADMIN">STORE_ADMIN</option>
-                      <option value="PARTNER_ADMIN">PARTNER_ADMIN</option>
-                      <option value="ADMIN">ADMIN</option>
-                      <option value="SUPER_ADMIN">SUPER_ADMIN</option>
-                    </select>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs font-black px-2 py-1 rounded-none uppercase border ${u.role === 'STORE_ADMIN' ? 'bg-purple-50 text-purple-700 border-purple-100' : u.role === 'PARTNER_ADMIN' ? 'bg-blue-50 text-blue-700 border-blue-100' : u.role === 'SUPER_ADMIN' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : u.role === 'ADMIN' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-gray-50 text-gray-600 border-gray-200'}`}>{u.role === 'SUPER_ADMIN' ? 'Super Admin' : u.role === 'ADMIN' ? 'Admin' : (u.role || 'BUYER')}</span>
-                      {u.cni_status === 'VERIFIED' && (
-                        <span className="text-[10px] font-black uppercase bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-full">
-                          CNI validée
-                        </span>
-                      )}
+          <table className="w-full min-w-[700px] text-left border-collapse">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200 text-[11px] font-semibold uppercase text-gray-500">
+                <th className="p-3">Utilisateur</th>
+                <th className="p-3">Rôle</th>
+                <th className="p-3">Business</th>
+                <th className="p-3">Statut</th>
+                {!readOnly && <th className="p-3 text-right">Actions</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {users.map((u) => (
+                <tr key={u.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                        {getAdminInitials(u)}
+                      </div>
+                      <div>
+                        <div className="text-[13px] font-semibold text-gray-900">{u.full_name || '—'}</div>
+                        <div className="text-[11px] text-gray-500">{u.email || ''}</div>
+                      </div>
                     </div>
-                  )}
-                </td>
-                <td className="p-3 md:p-4 py-4 text-[12px] font-medium text-gray-500 uppercase">
-                  {editingId === u.id ? (
-                    <input value={editBusiness} onChange={(e) => setEditBusiness(e.target.value)} className="border border-gray-200 px-2 py-1 rounded-md text-[12px] bg-[#F1F1F1]" />
-                  ) : (
-                    u.business_name || '-'
-                  )}
-                </td>
-                <td className="p-3 md:p-4 py-4">
-                  {editingId === u.id ? (
-                    <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)} className="border border-gray-200 text-xs font-bold uppercase px-2 py-1 rounded-none">
+                  </td>
+                  <td className="p-3">
+                    {editingId === u.id ? (
+                      <select value={editRole} onChange={(e) => setEditRole(e.target.value as UserRole)} className="h-8 border border-gray-200 rounded-lg px-2 text-[13px] bg-white">
+                        <option value="BUYER">BUYER</option>
+                        <option value="STORE_ADMIN">STORE_ADMIN</option>
+                        <option value="PARTNER_ADMIN">PARTNER_ADMIN</option>
+                        <option value="ADMIN">ADMIN</option>
+                        <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                      </select>
+                    ) : (
+                      <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700">{roleLabel(u.role)}</span>
+                    )}
+                  </td>
+                  <td className="p-3 text-[13px] text-gray-600">
+                    {editingId === u.id ? (
+                      <input value={editBusiness} onChange={(e) => setEditBusiness(e.target.value)} className="h-8 border border-gray-200 rounded-lg px-2 text-[13px] w-full max-w-[180px]" />
+                    ) : (
+                      u.business_name || '—'
+                    )}
+                  </td>
+                  <td className="p-3">{editingId === u.id ? (
+                    <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)} className="h-8 border border-gray-200 rounded-lg px-2 text-[13px] bg-white">
                       <option value="ACTIVE">ACTIVE</option>
                       <option value="PENDING">PENDING</option>
                       <option value="BANNED">BANNED</option>
                       <option value="DELETED">DELETED</option>
                       <option value="SUSPENDED">SUSPENDED</option>
                     </select>
-                  ) : (
-                    u.status === 'ACTIVE' && <span className="text-green-600 font-black text-xs flex items-center gap-1 uppercase"><Check size={12} /> Actif</span> ||
-                    u.status === 'PENDING' && <span className="text-orange-500 font-black text-xs flex items-center gap-1 uppercase"><Calendar size={12} /> En attente</span> ||
-                    u.status === 'SUSPENDED' && <span className="text-yellow-600 font-black text-xs flex items-center gap-1 uppercase"><ShieldCheck size={12} /> Suspendu</span> ||
-                    u.status === 'DELETED' && <span className="text-gray-500 font-black text-xs flex items-center gap-1 uppercase"><Ban size={12} /> Supprimé</span> ||
-                    <span className="text-red-600 font-black text-xs flex items-center gap-1 uppercase"><Ban size={12} /> Banni</span>
+                  ) : statusBadge(u)}</td>
+                  {!readOnly && (
+                    <td className="p-3 text-right">
+                      <div className="flex items-center justify-end gap-1 bg-gray-50/80 rounded-lg p-1.5 inline-flex">
+                        {editingId === u.id ? (
+                          <>
+                            <button onClick={() => saveEdit(u.id)} className="p-2 hover:bg-emerald-100 rounded-lg text-emerald-600" title="Enregistrer"><Check size={16} /></button>
+                            <button onClick={cancelEdit} className="p-2 hover:bg-gray-200 rounded-lg text-gray-500" title="Annuler"><X size={16} /></button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => startEdit(u)} className="p-2 hover:bg-gray-200 rounded-lg text-gray-500" title="Modifier"><Edit size={16} /></button>
+                            <button onClick={() => banUser(u.id)} className="p-2 hover:bg-red-100 rounded-lg text-red-500" title="Bannir"><Ban size={16} /></button>
+                            <button onClick={() => reactivateUser(u.id)} className="p-2 hover:bg-emerald-100 rounded-lg text-emerald-600" title="Réactiver"><Check size={16} /></button>
+                            <button onClick={() => revokeAccess(u.id)} className="p-2 hover:bg-amber-100 rounded-lg text-amber-600" title="Révoquer"><ShieldCheck size={16} /></button>
+                            <button onClick={() => resetPassword(u.id, u.email)} className="p-2 hover:bg-blue-100 rounded-lg text-blue-600" title="Réinitialiser mot de passe"><Key size={16} /></button>
+                            <button onClick={() => deleteUser(u.id)} className="p-2 hover:bg-red-100 rounded-lg text-red-600" title="Supprimer"><X size={16} /></button>
+                          </>
+                        )}
+                      </div>
+                    </td>
                   )}
-                </td>
-                {!readOnly && (
-                <td className="p-3 md:p-4 py-4 text-right space-x-2">
-                  {editingId === u.id ? (
-                    <>
-                      <button onClick={() => saveEdit(u.id)} className="p-2 hover:bg-emerald-50 rounded-lg text-emerald-600"><Check size={16} /></button>
-                      <button onClick={cancelEdit} className="p-2 hover:bg-gray-100 rounded-none text-gray-500"><X size={16} /></button>
-                    </>
-                  ) : (
-                    <>
-                      <button onClick={() => startEdit(u)} className="p-2 hover:bg-gray-100 rounded-none text-gray-400"><Edit size={16} /></button>
-                      <button onClick={() => banUser(u.id)} className="p-2 hover:bg-red-50 rounded-none text-red-500"><Ban size={16} /></button>
-                      <button onClick={() => reactivateUser(u.id)} className="p-2 hover:bg-emerald-50 rounded-none text-emerald-600"><Check size={16} /></button>
-                      <button onClick={() => revokeAccess(u.id)} className="p-2 hover:bg-yellow-50 rounded-none text-yellow-600"><ShieldCheck size={16} /></button>
-                      <button onClick={() => resetPassword(u.id, u.email)} className="p-2 hover:bg-blue-50 rounded-none text-blue-600"><Key size={16} /></button>
-                      <button onClick={() => deleteUser(u.id)} className="p-2 hover:bg-red-50 rounded-none text-red-600"><X size={16} /></button>
-                    </>
-                  )}
-                </td>
-              )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <div className="flex justify-between items-center text-xs text-gray-500">
-        <span>{totalCount} utilisateurs</span>
+      {/* Mobile : Cartes uniquement */}
+      <div className="md:hidden space-y-3">
+        {users.map((u) => (
+          <div key={u.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <p className="text-[13px] font-bold text-gray-900 flex-1 min-w-0 truncate">{u.full_name || '—'}</p>
+              <span className="flex-shrink-0 px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700">{roleLabel(u.role)}</span>
+            </div>
+            <p className="text-[11px] text-gray-500 mb-3">{u.email || ''}</p>
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+              <span className="text-[11px] text-gray-500">{u.business_name || '—'}</span>
+              {statusBadge(u)}
+            </div>
+            {!readOnly && (
+              <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
+                {editingId === u.id ? (
+                  <>
+                    <button onClick={() => saveEdit(u.id)} className="p-2 bg-emerald-100 rounded-lg text-emerald-600"><Check size={14} /></button>
+                    <button onClick={cancelEdit} className="p-2 bg-gray-100 rounded-lg text-gray-500"><X size={14} /></button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={() => startEdit(u)} className="p-2 bg-gray-100 rounded-lg text-gray-500"><Edit size={14} /></button>
+                    <button onClick={() => banUser(u.id)} className="p-2 bg-red-50 rounded-lg text-red-500"><Ban size={14} /></button>
+                    <button onClick={() => reactivateUser(u.id)} className="p-2 bg-emerald-50 rounded-lg text-emerald-600"><Check size={14} /></button>
+                    <button onClick={() => resetPassword(u.id, u.email)} className="p-2 bg-blue-50 rounded-lg text-blue-600"><Key size={14} /></button>
+                    <button onClick={() => deleteUser(u.id)} className="p-2 bg-red-50 rounded-lg text-red-500"><X size={14} /></button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Pagination : centrée, boutons Précédent / Suivant discrets */}
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-3 py-4">
+        <span className="text-[13px] text-gray-500">{totalCount} utilisateur{totalCount !== 1 ? 's' : ''}</span>
         <div className="flex items-center gap-2">
-          <button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} className="px-3 py-1 border border-gray-200 rounded-none disabled:opacity-50">Précédent</button>
-          <span>Page {page}</span>
-          <button disabled={page * pageSize >= totalCount} onClick={() => setPage(p => p + 1)} className="px-3 py-1 border border-gray-200 rounded-none disabled:opacity-50">Suivant</button>
+          <button
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            className="px-3 py-1.5 text-[13px] font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Précédent
+          </button>
+          <span className="text-[13px] text-gray-600 font-medium min-w-[4rem] text-center">Page {page}</span>
+          <button
+            disabled={page * pageSize >= totalCount}
+            onClick={() => setPage((p) => p + 1)}
+            className="px-3 py-1.5 text-[13px] font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Suivant
+          </button>
         </div>
       </div>
     </div>
@@ -2595,7 +2712,7 @@ const StoreStatsDashboard = ({ products, userProfile }: { products: Product[], u
   return (
     <div className="px-3 py-3 md:p-8 animate-fade-in">
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <h2 className="text-[15px] md:text-xl font-bold text-[#0f172a] uppercase tracking-tight leading-tight">Tableau de bord : {userProfile?.businessName}</h2>
+        <h2 className="admin-page-title text-[15px] md:text-xl font-bold text-[#0f172a] uppercase tracking-tight leading-tight">Tableau de bord : {userProfile?.businessName}</h2>
         {userProfile?.cniStatus === 'VERIFIED' && (
           <span className="text-[10px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-full">
             CNI validée
@@ -2700,6 +2817,24 @@ const StoreStatsDashboard = ({ products, userProfile }: { products: Product[], u
   );
 };
 
+/* Carte de statistique : fond blanc, ombre légère, bordure gauche colorée */
+const StatCard = ({ label, value, borderColor = '#e5e7eb' }: { label: string; value: React.ReactNode; borderColor?: string }) => (
+  <div
+    className="bg-white rounded-xl shadow-sm p-5 flex flex-col justify-center min-h-[100px]"
+    style={{ borderLeft: `4px solid ${borderColor}` }}
+  >
+    <h3 className="text-gray-500 text-xs uppercase font-medium mb-1">{label}</h3>
+    <p className="text-gray-900 text-xl font-extrabold leading-tight">{value}</p>
+  </div>
+);
+
+/* Grille de cartes : 2 colonnes mobile, 4 colonnes desktop */
+const StatGrid = ({ children }: { children: React.ReactNode }) => (
+  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">{children}</div>
+);
+
+const CHART_DAYS = 3; // 3 derniers jours : 2 jours précédents + aujourd'hui (focus temps réel)
+
 const GlobalStatsDashboard = () => {
   const [stats, setStats] = useState<PlatformStats>({ revenue: 0, totalOrders: 0, activeProducts: 0, totalUsers: 0, totalTickets: 0, totalDeliveries: 0 });
   const [dailySales, setDailySales] = useState<DailySale[]>([]);
@@ -2709,99 +2844,92 @@ const GlobalStatsDashboard = () => {
     fetchPlatformStats().then(setStats);
   }, []);
 
-  const chartDays = 5;
   useEffect(() => {
     setChartLoading(true);
-    fetchDailySalesForAdmin(chartDays)
+    fetchDailySalesForAdmin(CHART_DAYS)
       .then(setDailySales)
       .catch(() => setDailySales([]))
       .finally(() => setChartLoading(false));
   }, []);
 
-  const hasChartData = dailySales.length > 0 && dailySales.some((d) => d.amount > 0);
-  const chartData = dailySales.length > 0 ? dailySales : Array.from({ length: chartDays }, (_, i) => {
-    const d = new Date(Date.now() - (chartDays - 1 - i) * 86400000);
-    d.setHours(0, 0, 0, 0);
+  // 3 derniers jours (aujourd'hui - 2, aujourd'hui - 1, aujourd'hui) — axe X dynamique
+  const chartData = dailySales.length > 0 ? dailySales : (() => {
     const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    return { date: key, label: `${d.getDate()} ${months[d.getMonth()]}`, amount: 0 };
-  });
+    return Array.from({ length: CHART_DAYS }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (CHART_DAYS - 1 - i));
+      d.setHours(0, 0, 0, 0);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      return { date: key, label: `${d.getDate()} ${months[d.getMonth()]}`, amount: 0 };
+    });
+  })();
 
+  const hasChartData = chartData.some((d) => d.amount > 0);
   const formatY = (v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v));
   const showSkeleton = !chartLoading && !hasChartData;
   const yMax = Math.max(100, ...chartData.map((d) => d.amount));
 
   return (
-    <div className="page-padding py-4 md:p-8 animate-fade-in max-w-[1400px] space-y-4" style={{ paddingTop: 'max(16px, env(safe-area-inset-top))' }}>
-      <h1 className="mobile-h1 text-[18px] md:text-xl font-bold uppercase tracking-tight leading-tight mb-2 text-[#0f172a]">Statistiques</h1>
-      <p className="text-[10px] md:text-xs text-[#666] mb-3">Vue d&apos;ensemble plateforme</p>
-      <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-4">
-        <div className="bg-white p-2 md:p-4 rounded-md border border-gray-100 flex flex-col justify-center min-w-0" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <h3 className="text-[11px] md:text-xs font-medium text-[#666] mb-1 leading-tight">CA Total</h3>
-          <p className="text-[14px] md:text-lg font-bold text-[#00A859] leading-tight">{stats.revenue.toLocaleString()} <span className="text-[10px] font-normal">FCFA</span></p>
-        </div>
-        <div className="bg-white p-2 md:p-4 rounded-md border border-gray-100 flex flex-col justify-center min-w-0" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <h3 className="text-[11px] md:text-xs font-medium text-[#666] mb-1 leading-tight">Ventes</h3>
-          <p className="text-[14px] md:text-lg font-bold text-[#0f172a] leading-tight">{stats.totalOrders}</p>
-        </div>
-        <div className="bg-white p-2 md:p-4 rounded-md border border-gray-100 flex flex-col justify-center min-w-0" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <h3 className="text-[11px] md:text-xs font-medium text-[#666] mb-1 leading-tight">Produits</h3>
-          <p className="text-[14px] md:text-lg font-bold text-[#00A859] leading-tight">{stats.activeProducts}</p>
-        </div>
-        <div className="bg-white p-2 md:p-4 rounded-md border border-gray-100 flex flex-col justify-center min-w-0" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <h3 className="text-[11px] md:text-xs font-medium text-[#666] mb-1 leading-tight">Users</h3>
-          <p className="text-[14px] md:text-lg font-bold text-[#00A859] leading-tight">{stats.totalUsers}</p>
-        </div>
-        <div className="bg-white p-2 md:p-4 rounded-md border border-gray-100 flex flex-col justify-center min-w-0" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <h3 className="text-[11px] md:text-xs font-medium text-[#666] mb-1 leading-tight">Tickets</h3>
-          <p className="text-[14px] md:text-lg font-bold text-[#00A859] leading-tight">{stats.totalTickets}</p>
-        </div>
-        <div className="bg-white p-2 md:p-4 rounded-md border border-gray-100 flex flex-col justify-center min-w-0" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <h3 className="text-[11px] md:text-xs font-medium text-[#666] mb-1 leading-tight">Livraisons</h3>
-          <p className="text-[14px] md:text-lg font-bold text-[#00A859] leading-tight">{stats.totalDeliveries}</p>
-        </div>
-      </div>
+    <div className="animate-fade-in max-w-[1400px] admin-dashboard-right p-8">
+      {/* Titre à gauche, au-dessus des cartes */}
+      <h1 className="text-xl md:text-2xl font-bold text-gray-900 uppercase tracking-tight mb-6">Statistiques</h1>
 
-      {/* Graphique CA / Ventes par jour */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-4 pt-4 pb-2">
-          <h3 className="text-xs font-bold text-[#0f172a] uppercase tracking-wide">Chiffre d&apos;affaires par jour</h3>
-          <p className="text-[10px] text-[#666] mt-0.5">5 derniers jours</p>
+      {/* Grille de 6 cartes professionnelles */}
+      <StatGrid>
+        <StatCard label="CA Total" value={<>{stats.revenue.toLocaleString()} <span className="text-sm font-semibold">FCFA</span></>} borderColor="#059669" />
+        <StatCard label="Ventes" value={stats.totalOrders} borderColor="#2563eb" />
+        <StatCard label="Produits" value={stats.activeProducts} borderColor="#059669" />
+        <StatCard label="Users" value={stats.totalUsers} borderColor="#2563eb" />
+        <StatCard label="Tickets" value={stats.totalTickets} borderColor="#d97706" />
+        <StatCard label="Livraisons" value={stats.totalDeliveries} borderColor="#475569" />
+      </StatGrid>
+
+      {/* Espace 40px entre grille et graphique */}
+      <div className="mt-10" />
+
+      {/* Graphique Live : 3 derniers jours (2 jours précédents + aujourd'hui), vue temps réel */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+        <div className="px-5 pt-5 pb-2">
+          <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Chiffre d&apos;affaires par jour</h3>
+          <p className="text-xs text-gray-500 mt-0.5">3 derniers jours (Vue temps réel)</p>
         </div>
         <div className="overflow-x-auto" style={{ height: 320 }}>
-          <div style={{ minWidth: Math.max(400, chartData.length * 56), height: 320, padding: '0 16px 16px' }}>
+          <div style={{ minWidth: 380, height: 320, padding: '0 24px 20px' }}>
             {chartLoading ? (
-              <div className="flex items-end gap-1 h-[260px] pt-2 px-2">
-                {Array.from({ length: chartDays }).map((_, i) => (
-                  <div key={i} className="flex-1 min-w-[32px] rounded-t bg-[#F1F1F1]" style={{ height: `${35 + (i % 5) * 12}%` }} />
+              <div className="flex items-end justify-center gap-8 h-[260px] pt-2 px-2">
+                {Array.from({ length: CHART_DAYS }).map((_, i) => (
+                  <div key={i} className="w-[70px] rounded-t bg-gray-100" style={{ height: `${35 + (i % 3) * 20}%` }} />
                 ))}
               </div>
             ) : showSkeleton ? (
-              <div className="flex items-end gap-1 h-[260px] pt-2 px-2">
-                {chartData.map((d, i) => (
-                  <div key={d.date} className="flex flex-col items-center flex-1 min-w-[32px]">
-                    <div className="w-full rounded-t bg-[#E5E7EB]" style={{ height: `${40 + (i % 4) * 15}%` }} />
-                    <span className="text-[10px] text-gray-400 mt-1 truncate w-full text-center">{d.label}</span>
-                  </div>
-                ))}
+              <div className="flex flex-col items-center justify-center h-[260px] pt-2 px-2 gap-2">
+                <p className="text-xs font-medium text-gray-400 uppercase">En attente de données</p>
+                <div className="flex items-end justify-center gap-8 h-[180px] w-full">
+                  {chartData.map((d, i) => (
+                    <div key={d.date} className="flex flex-col items-center">
+                      <div className="w-[70px] rounded-t bg-gray-200" style={{ height: `${40 + (i % 3) * 18}%` }} />
+                      <span className="text-[12px] font-bold text-gray-500 mt-2">{d.label}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 4 }}>
-                  <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="#999" axisLine={{ stroke: '#F1F1F1' }} />
-                  <YAxis tickFormatter={formatY} tick={{ fontSize: 10 }} stroke="#999" axisLine={{ stroke: '#F1F1F1' }} domain={[0, yMax]} />
+                <BarChart data={chartData} margin={{ top: 8, right: 16, left: 16, bottom: 8 }} barCategoryGap="40%">
+                  <XAxis dataKey="label" tick={{ fontSize: 12, fontWeight: 700 }} stroke="#666" axisLine={{ stroke: '#f1f1f1' }} />
+                  <YAxis tickFormatter={formatY} tick={{ fontSize: 10 }} stroke="#999" axisLine={{ stroke: '#f1f1f1' }} domain={[0, yMax]} />
                   <Tooltip
                     content={({ active, payload }) =>
                       active && payload?.[0] ? (
-                        <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-[10px] font-bold">
-                          {payload[0].payload?.label}: {(payload[0].value as number).toLocaleString()} F
+                        <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-xs font-bold">
+                          {payload[0].payload?.label}: {(payload[0].value as number).toLocaleString()} FCFA
                         </div>
                       ) : null
                     }
                   />
-                  <Bar dataKey="amount" radius={[4, 4, 0, 0]} maxBarSize={36} fill="url(#greenGrad)" />
+                  <Bar dataKey="amount" barSize={70} radius={[8, 8, 0, 0]} fill="url(#adminChartGreen)" />
                   <defs>
-                    <linearGradient id="greenGrad" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="adminChartGreen" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#065f46" />
                       <stop offset="100%" stopColor="#064e3b" />
                     </linearGradient>
@@ -3260,7 +3388,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  return <div className="max-w-7xl mx-auto min-h-screen pb-12 px-4 md:px-0">{renderAdminContent()}</div>;
+  return <div className="max-w-7xl mx-auto min-h-screen pb-12 px-4 md:px-0 admin-page-content">{renderAdminContent()}</div>;
 };
 
 export default Dashboard;

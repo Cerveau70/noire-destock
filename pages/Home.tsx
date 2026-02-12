@@ -9,6 +9,7 @@ interface HomeProps {
   favoriteIds?: string[];
   onToggleFavorite?: (productId: string) => void;
   onNavigate: (page: string) => void;
+  onOpenProduct?: (productId: string) => void;
   onSellerAccess: () => void;
   contactChannel: 'whatsapp' | 'messages';
   onContactChannelChange: (channel: 'whatsapp' | 'messages') => void;
@@ -23,6 +24,7 @@ const Home: React.FC<HomeProps> = ({
   favoriteIds = [],
   onToggleFavorite,
   onNavigate,
+  onOpenProduct,
   onSellerAccess,
   contactChannel,
   onContactChannelChange,
@@ -135,19 +137,15 @@ const Home: React.FC<HomeProps> = ({
           byCategory.map(([category, list]) => (
             <div key={category} className="mb-4 md:mb-6">
               <h3 className="mobile-h2 text-[14px] md:text-lg font-semibold text-[#0f172a] uppercase tracking-wide mb-2">{category}</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+              <div className="flex flex-row flex-nowrap overflow-x-auto gap-3 pb-4 pl-4 scrollbar-hide snap-x snap-mandatory products-scroll-mobile md:grid md:grid-cols-3 lg:grid-cols-4 md:gap-4 md:overflow-visible md:pb-0 md:pl-0">
                 {list.map((product) => (
-                  <div key={product.id} className="min-w-0">
+                  <div key={product.id} className="flex-none w-[165px] min-w-[165px] snap-start md:w-auto md:min-w-0">
                     <ProductCard
                       product={product}
                       onAddToCart={onAddToCart}
                       isFavorite={favoriteIds.includes(product.id)}
                       onToggleFavorite={onToggleFavorite}
-                      contactChannel={contactChannel}
-                      onContactChannelChange={onContactChannelChange}
-                      isAuthenticated={isAuthenticated}
-                      onRequireAuth={onRequireAuth}
-                      onStartChat={onStartChat}
+                      onProductClick={onOpenProduct}
                     />
                   </div>
                 ))}

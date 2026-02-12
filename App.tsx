@@ -6,11 +6,13 @@ import { initiateWavePayment } from './services/paymentService'; // Import du se
 import { supabase } from './services/supabaseClient';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import HelpDrawer from './components/HelpDrawer';
 import StaticPage from './pages/StaticPage';
 import SettingsHub from './pages/SettingsHub';
 import Home from './pages/Home';
 import Marketplace from './pages/Marketplace';
 import Favoris from './pages/Favoris';
+import ProductDetailPage from './pages/ProductDetailPage';
 import Dashboard from './pages/Dashboard';
 import AIChat from './components/AIChat';
 import AuthScreen from './components/AuthScreen';
@@ -25,6 +27,7 @@ const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>('BUYER');
   const [currentPage, setCurrentPage] = useState('home');
   const [pageRefreshKey, setPageRefreshKey] = useState(0);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [adminSection, setAdminSection] = useState('dashboard');
   const [buyerSection, setBuyerSection] = useState<'dashboard' | 'messages'>('dashboard');
   const [showAccountPrompt, setShowAccountPrompt] = useState(false);
@@ -32,7 +35,16 @@ const App: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [isBurgerMenuOpen, setIsBurgerMenuOpen] = useState(false);
+  const [helpDrawerOpen, setHelpDrawerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [hideBottomNavNearFooter, setHideBottomNavNearFooter] = useState(false);
+  const footerRef = React.useRef<HTMLDivElement>(null);
+  const [footerMounted, setFooterMounted] = useState(false);
+  const setFooterRef = React.useCallback((el: HTMLDivElement | null) => {
+    (footerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    setFooterMounted(!!el);
+  }, []);
 
   // Payment States
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -107,6 +119,23 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Navbar inférieure : disparaît près du footer sur Home, Panier, Catégories, Favoris, Compte ; réapparaît en remontant
+  useEffect(() => {
+    if (!footerMounted) return;
+    const el = footerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        setHideBottomNavNearFooter(entry.isIntersecting);
+      },
+      { root: null, rootMargin: '0px', threshold: [0, 0.05, 0.1] }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [footerMounted]);
+
   const handleCookieChoice = (choice: 'accepted' | 'refused') => {
     setCookieChoice(choice);
     if (typeof window !== 'undefined') {
@@ -124,10 +153,11 @@ const App: React.FC = () => {
     if (!profile && sessionUser) {
       const fallbackName = sessionUser.user_metadata?.full_name || sessionUser.user_metadata?.name || 'Utilisateur';
       const fallbackEmail = sessionUser.email || '';
+      const fallbackRole = (sessionUser.user_metadata?.role as UserRole) || 'BUYER';
       await supabase.from('profiles').insert([{
         id: userId,
         full_name: fallbackName,
-        role: 'BUYER',
+        role: fallbackRole,
         email: fallbackEmail,
         phone: '',
         wallet_balance: 0,
@@ -271,7 +301,10 @@ const App: React.FC = () => {
 
   const goToBuyerAccount = () => {
     if (!isAuthenticated) {
-      setShowAccountPrompt(true);
+      setRole('BUYER');
+      setAuthTarget('buyer-account');
+      setBuyerSection('dashboard');
+      setCurrentPage('dashboard');
       return;
     }
     setRole('BUYER');
@@ -489,7 +522,7 @@ const App: React.FC = () => {
     );
   }
 
-  // 1. Auth Screen Overlay
+  // 1. Auth Screen Overlay — Si l'utilisateur a choisi l'espace admin (Support & Gestion), role est déjà SUPER_ADMIN : SUPER_ADMIN et ADMIN peuvent se connecter (même formulaire, ADMIN en lecture seule).
   if ((currentPage === 'dashboard' && !isAuthenticated) || (authTarget && !isAuthenticated)) {
     return (
       <AuthScreen
@@ -506,14 +539,16 @@ const App: React.FC = () => {
   // 2. Admin Interface
   if (isAuthenticated && effectiveRole !== 'BUYER') {
     return (
-      <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+      <div className="flex h-screen bg-gray-50 overflow-hidden font-sans max-w-[100vw]">
+        {/* Safe guard : bande fixe en haut (s'adapte à la safe-area) */}
+        <div className="fixed top-0 left-0 w-full bg-gray-50 z-50 pointer-events-none" style={{ height: 'var(--safe-top)' }} aria-hidden />
         <AdminSidebar
           role={effectiveRole}
           activeSection={adminSection}
           onNavigate={setAdminSection}
           onLogout={handleLogout}
         />
-        <div className="flex-1 overflow-y-auto overflow-x-hidden relative page-padding safe-area-top py-4 pl-[60px] md:p-8 lg:pl-8 space-y-4 min-w-0">
+        <div className="admin-dash-content flex-1 overflow-y-auto overflow-x-hidden relative py-4 px-4 md:px-6 lg:pl-8 lg:pr-8 space-y-4 min-w-0 w-full" style={{ paddingTop: 'calc(var(--safe-top) + 56px)' }}>
           <Dashboard
             products={products}
             role={effectiveRole}
@@ -648,7 +683,7 @@ const App: React.FC = () => {
   const renderBuyerPage = () => {
     if (footerPages[currentPage]) {
       const page = footerPages[currentPage];
-      return <StaticPage title={page.title} subtitle={page.subtitle} sections={page.sections} />;
+      return <StaticPage title={page.title} subtitle={page.subtitle} sections={page.sections} onBack={() => setCurrentPage('home')} />;
     }
     switch (currentPage) {
       case 'settings':
@@ -661,6 +696,7 @@ const App: React.FC = () => {
             favoriteIds={favoriteIds}
             onToggleFavorite={toggleFavorite}
             onNavigate={setCurrentPage}
+            onOpenProduct={(id) => { setSelectedProductId(id); setCurrentPage('product'); }}
             onSellerAccess={goToSellerSpace}
             contactChannel={contactChannel}
             onContactChannelChange={updateContactChannel}
@@ -669,6 +705,19 @@ const App: React.FC = () => {
             onStartChat={startBuyerChat}
           />
         );
+      case 'product': {
+        const product = products.find((p) => p.id === selectedProductId);
+        if (!product) return <Home products={products} onAddToCart={addToCart} favoriteIds={favoriteIds} onToggleFavorite={toggleFavorite} onNavigate={setCurrentPage} onOpenProduct={(id) => { setSelectedProductId(id); setCurrentPage('product'); }} onSellerAccess={goToSellerSpace} contactChannel={contactChannel} onContactChannelChange={updateContactChannel} isAuthenticated={isAuthenticated} onRequireAuth={requireAuthForMessaging} onStartChat={startBuyerChat} />;
+        return (
+          <ProductDetailPage
+            product={product}
+            onBack={() => { setSelectedProductId(null); setCurrentPage('marketplace'); }}
+            onAddToCart={addToCart}
+            isAuthenticated={isAuthenticated}
+            onRequireAuth={requireAuthForMessaging}
+          />
+        );
+      }
       case 'marketplace':
         return (
           <Marketplace
@@ -676,6 +725,7 @@ const App: React.FC = () => {
             onAddToCart={addToCart}
             favoriteIds={favoriteIds}
             onToggleFavorite={toggleFavorite}
+            onOpenProduct={(id) => { setSelectedProductId(id); setCurrentPage('product'); }}
             searchQuery={searchQuery}
             contactChannel={contactChannel}
             onContactChannelChange={updateContactChannel}
@@ -692,11 +742,13 @@ const App: React.FC = () => {
             favoriteIds={favoriteIds}
             onToggleFavorite={toggleFavorite}
             onAddToCart={addToCart}
+            onOpenProduct={(id) => { setSelectedProductId(id); setCurrentPage('product'); }}
             contactChannel={contactChannel}
             onContactChannelChange={updateContactChannel}
             isAuthenticated={isAuthenticated}
             onRequireAuth={requireAuthForMessaging}
             onStartChat={startBuyerChat}
+            onBack={() => setCurrentPage('home')}
           />
         );
       case 'dashboard':
@@ -720,6 +772,7 @@ const App: React.FC = () => {
             favoriteIds={favoriteIds}
             onToggleFavorite={toggleFavorite}
             onNavigate={setCurrentPage}
+            onOpenProduct={(id) => { setSelectedProductId(id); setCurrentPage('product'); }}
             onSellerAccess={goToSellerSpace}
             contactChannel={contactChannel}
             onContactChannelChange={updateContactChannel}
@@ -732,7 +785,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen font-sans text-gray-800 bg-gray-50/50 relative">
+    <div className="flex flex-col min-h-screen font-sans text-gray-800 bg-gray-50/50 relative max-w-[100vw] overflow-x-hidden">
       {showAccountPrompt && (
         <div className="fixed inset-0 z-[2100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl border border-gray-100">
@@ -879,6 +932,7 @@ const App: React.FC = () => {
         cartCount={cart.reduce((acc, item) => acc + item.quantity, 0)}
         toggleCart={() => setIsCartOpen(true)}
         isCartOpen={isCartOpen}
+        onMenuOpenChange={setIsBurgerMenuOpen}
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
         onNavToPage={handleNavToPage}
@@ -892,15 +946,24 @@ const App: React.FC = () => {
         onAccount={goToBuyerAccount}
         onHome={goHome}
         onQuit={openQuitModal}
+        hideBottomNavNearFooter={hideBottomNavNearFooter}
+        hideBottomNav={currentPage === 'product'}
+        onOpenHelp={() => setHelpDrawerOpen(true)}
       />
 
-      <main className="flex-1 pb-20 md:pb-0" key={`${currentPage}-${pageRefreshKey}`}>
+      <main className="flex-1 pb-20 md:pb-0 px-4 md:px-6 w-full max-w-[100vw] box-border" style={{ paddingBottom: 'max(80px, calc(80px + env(safe-area-inset-bottom)))' }} key={`${currentPage}-${pageRefreshKey}`}>
         {renderBuyerPage()}
       </main>
 
+      {currentPage !== 'favoris' && currentPage !== 'product' && (
+        <div ref={setFooterRef}>
       <Footer onNavigate={setCurrentPage} />
+        </div>
+      )}
 
-      <AIChat productContext={products} hideFAB={filtersOpen} />
+      <HelpDrawer open={helpDrawerOpen} onClose={() => setHelpDrawerOpen(false)} onNavigate={(page) => { setCurrentPage(page); setHelpDrawerOpen(false); }} />
+
+      <AIChat productContext={products} hideFAB={filtersOpen || isCartOpen || isBurgerMenuOpen} />
 
       {/* TOAST NOTIFICATION */}
       {notification && (
@@ -917,33 +980,44 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Cart Overlay (z-index sous la barre du bas pour que Accueil reste cliquable) */}
+      {/* Cart Overlay — header comme le reste de l'app (padding-top + barre verte) + bouton retour dans la page */}
       {isCartOpen && (
-        <div className="fixed inset-0 z-[40] overflow-hidden">
-          <div className="absolute inset-0 bg-black bg-opacity-30 backdrop-blur-sm" onClick={() => setIsCartOpen(false)}></div>
-          <div className="absolute inset-y-0 right-0 max-w-full flex items-end md:items-stretch justify-end">
-            <div className="w-full max-w-md bg-white shadow-2xl flex flex-col h-[85dvh] md:h-full max-h-[85dvh] md:max-h-none animate-slide-in-right rounded-t-2xl md:rounded-none">
-              <div
-                className="px-4 md:px-6 py-4 md:py-6 bg-[#064e3b] text-white flex justify-between items-center shadow-md sticky top-0 z-10"
-                style={{ paddingTop: 'max(36px, calc(env(safe-area-inset-top) + 12px))' }}
-              >
-                <button onClick={goHome} className="flex items-center gap-2 hover:opacity-90" aria-label="Retour à l'accueil">
-                  <ArrowLeft size={22} />
-                  <span className="text-sm font-bold uppercase hidden sm:inline">Retour</span>
-                </button>
-                <h2 className="text-lg font-bold tracking-wide uppercase">Votre Panier</h2>
-                <button onClick={() => setIsCartOpen(false)} className="hover:opacity-75" aria-label="Fermer">
-                  <X />
+        <div className="fixed z-[150] w-full h-full max-w-[100vw] overflow-hidden left-0 right-0 bottom-0 cart-overlay-wrapper">
+          <div className="absolute inset-0 bg-black bg-opacity-30 backdrop-blur-sm" onClick={() => setIsCartOpen(false)} />
+          <div className="absolute inset-0 flex items-start justify-center md:justify-end md:items-stretch">
+            <div className="w-full h-full max-w-[100vw] md:max-w-md bg-white shadow-2xl flex flex-col animate-slide-in-right rounded-none cart-panel-mobile-max-h">
+              {/* Padding-top safe area + header (même style que Navbar) */}
+              <div className="shrink-0" style={{ paddingTop: 'var(--safe-top)' }}>
+                <div className="bg-[#064e3b] text-white px-4 py-2 shadow-md w-full box-border" style={{ paddingLeft: 16, paddingRight: 16 }}>
+                  <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={goHome}>
+                      <img src="/img/dest.png" alt="Logo" className="w-8 h-8 bg-white rounded-lg p-1 object-contain" />
+                      <div className="flex flex-col leading-none">
+                        <span className="font-black text-base tracking-tighter uppercase">Ivoire<span className="font-light">Destock</span></span>
+                        <span className="text-[7px] tracking-[0.2em] text-emerald-300 uppercase font-bold">Anti-Gaspillage</span>
+                      </div>
+                    </div>
+                    <button onClick={() => setIsCartOpen(false)} className="p-2 hover:opacity-80 rounded-lg" aria-label="Fermer le panier">
+                      <X size={22} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {/* Bouton retour dans la page panier */}
+              <div className="shrink-0 px-4 py-3 border-b border-gray-100 bg-gray-50/50">
+                <button onClick={() => setIsCartOpen(false)} className="flex items-center gap-2 text-[#064e3b] font-bold text-sm hover:opacity-90" aria-label="Retour">
+                  <ArrowLeft size={20} />
+                  <span>Retour</span>
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 md:p-6">
+              <div className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-4 md:px-6 md:py-6">
                 {cart.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-gray-400">
                     <p>Votre panier est vide.</p>
                   </div>
                 ) : (
-                  <div className="space-y-6">
+                  <div className="space-y-6 w-full max-w-[100vw]">
                     {cart.map(item => (
                       <div key={item.id} className="flex justify-between items-start border-b border-gray-100 pb-6">
                         <div className="flex items-start space-x-4">
@@ -986,7 +1060,7 @@ const App: React.FC = () => {
                 )}
               </div>
 
-              <div className="p-4 md:p-6 border-t border-gray-100 bg-gray-50">
+              <div className="px-5 py-4 md:px-6 md:py-6 border-t border-gray-100 bg-gray-50" style={{ paddingBottom: 'max(24px, calc(16px + env(safe-area-inset-bottom)))' }}>
                 <div className="mb-5">
                   <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Résumé détaillé</p>
                   <div className="space-y-2 max-h-28 overflow-y-auto pr-2">
@@ -1002,21 +1076,13 @@ const App: React.FC = () => {
                   <span className="font-bold text-gray-700 uppercase text-sm tracking-wide">Total à payer</span>
                   <span className="font-black text-2xl text-[#064e3b]">{cartTotal.toLocaleString()} FCFA</span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-1 gap-2">
-                  <button
-                    onClick={handleCheckoutClick}
-                    disabled={cart.length === 0}
-                    className="w-full bg-[#064e3b] text-white py-4 font-bold hover:bg-[#065f46] disabled:opacity-50 transition-colors uppercase tracking-widest text-sm"
-                  >
-                    Commander
-                  </button>
-                  <button
-                    onClick={goHome}
-                    className="w-full border border-gray-200 text-gray-600 py-3 font-bold uppercase text-xs hover:bg-gray-100 transition-colors"
-                  >
-                    Retour à l'accueil
-                  </button>
-                </div>
+                <button
+                  onClick={handleCheckoutClick}
+                  disabled={cart.length === 0}
+                  className="w-full bg-[#064e3b] text-white py-4 font-bold hover:bg-[#065f46] disabled:opacity-50 transition-colors uppercase tracking-widest text-sm"
+                >
+                  Commander
+                </button>
               </div>
             </div>
           </div>
@@ -1132,7 +1198,7 @@ const App: React.FC = () => {
               >
                 <div className="flex items-center gap-3">
                   <img src="/img/wave.png" alt="" className="w-10 h-10 object-contain group-hover:scale-110 transition-transform" />
-                  <span className="font-bold text-[#0f172a] text-sm">Wave</span>
+                <span className="font-bold text-[#0f172a] text-sm">Wave</span>
                 </div>
               </button>
 
@@ -1143,7 +1209,7 @@ const App: React.FC = () => {
               >
                 <div className="flex items-center gap-3">
                   <img src="/img/om.png" alt="" className="w-10 h-10 object-contain group-hover:scale-110 transition-transform" />
-                  <span className="font-bold text-[#0f172a] text-sm">Orange Money</span>
+                <span className="font-bold text-[#0f172a] text-sm">Orange Money</span>
                 </div>
               </button>
 
@@ -1154,7 +1220,7 @@ const App: React.FC = () => {
               >
                 <div className="flex items-center gap-3">
                   <img src="/img/mtn.jpg" alt="" className="w-10 h-10 object-contain group-hover:scale-110 transition-transform" />
-                  <span className="font-bold text-[#0f172a] text-sm">MTN MoMo</span>
+                <span className="font-bold text-[#0f172a] text-sm">MTN MoMo</span>
                 </div>
               </button>
                 </div>

@@ -71,13 +71,15 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ role, onLogin, onCancel }) => {
           if (profileError || !profile) throw new Error("Erreur lors de la récupération de votre profil.");
 
           // --- RÈGLE 1 : VÉRIFICATION DU RÔLE ---
-          // On empêche un client de se connecter comme admin/vendeur et vice-versa
+          // Espace Admin (formulaire "Support & Gestion") : SUPER_ADMIN et ADMIN peuvent se connecter (même formulaire).
+          // Les ADMIN ont le même dashboard en lecture seule (pas de création admin, pas de modification).
           const adminRoles = ['SUPER_ADMIN', 'ADMIN'];
-          const canAccessAdminSpace = role === 'SUPER_ADMIN' && profile.role && adminRoles.includes(profile.role);
-          if (role === 'SUPER_ADMIN') {
+          const isAdminForm = role === 'SUPER_ADMIN';
+          const canAccessAdminSpace = isAdminForm && profile.role && adminRoles.includes(profile.role);
+          if (isAdminForm) {
             if (!canAccessAdminSpace) {
               await supabase.auth.signOut();
-              throw new Error(`Ce compte (${profile.role}) ne peut pas accéder à l'espace Administration.`);
+              throw new Error(profile.role ? `Ce compte (${profile.role}) ne peut pas accéder à l'espace Administration.` : "Profil incomplet. Contactez le support.");
             }
           } else if (profile.role !== role) {
             await supabase.auth.signOut();
